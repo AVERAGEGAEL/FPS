@@ -33,7 +33,7 @@ const map = [
 // --- Player ---
 const player = { x: 2.5, y: 2.5, dirX: -1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05, rotSpeed: 0.03 };
 
-// --- NEW: Targets and Game State ---
+// --- Targets and Game State ---
 let targets = [
     { x: 4.5, y: 4.5, health: 100 },
     { x: 10.5, y: 2.5, health: 100 },
@@ -48,45 +48,48 @@ const keys = {};
 document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
 document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
-// --- NEW: Shooting Input ---
+// --- Shooting Input ---
 canvas.addEventListener('click', () => {
-    // Play sound
     gunshotSound.currentTime = 0;
     gunshotSound.play();
 
-    // Check for target hit
     targets.forEach(target => {
         if (target.health > 0) {
             const dist = Math.sqrt((player.x - target.x)**2 + (player.y - target.y)**2);
-            // Vector from player to target
             const targetVecX = (target.x - player.x) / dist;
             const targetVecY = (target.y - player.y) / dist;
-            // Dot product to see if target is in front of player
             const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
 
-            // Check if target is roughly in the center of view (dot product > 0.98 is a narrow cone) and within range
             if (dotProduct > 0.98 && dist < 10) {
-                target.health -= 25; // Damage
+                target.health -= 25;
                 if (target.health <= 0) {
                     score += 100;
-                    console.log("Target eliminated! Score:", score);
                 }
             }
         }
     });
 });
 
-
 function updateGame() {
-    // Movement
+    // --- MOVEMENT BUG FIX ---
+    // This new logic checks X and Y collisions separately to allow sliding along walls.
     if (keys['w'] || keys['arrowup']) {
-        if (map[Math.floor(player.x + player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) player.x += player.dirX * player.moveSpeed;
-        if (map[Math.floor(player.x)][Math.floor(player.y + player.dirY * player.moveSpeed)] === 0) player.y += player.dirY * player.moveSpeed;
+        if (map[Math.floor(player.x + player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) {
+            player.x += player.dirX * player.moveSpeed;
+        }
+        if (map[Math.floor(player.x)][Math.floor(player.y + player.dirY * player.moveSpeed)] === 0) {
+            player.y += player.dirY * player.moveSpeed;
+        }
     }
     if (keys['s'] || keys['arrowdown']) {
-        if (map[Math.floor(player.x - player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) player.x -= player.dirX * player.moveSpeed;
-        if (map[Math.floor(player.x)][Math.floor(player.y - player.dirY * player.moveSpeed)] === 0) player.y -= player.dirY * player.moveSpeed;
+        if (map[Math.floor(player.x - player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) {
+            player.x -= player.dirX * player.moveSpeed;
+        }
+        if (map[Math.floor(player.x)][Math.floor(player.y - player.dirY * player.moveSpeed)] === 0) {
+            player.y -= player.dirY * player.moveSpeed;
+        }
     }
+
     // Rotation
     if (keys['d'] || keys['arrowright']) {
         const oldDirX = player.dirX;
@@ -152,8 +155,7 @@ function render() {
         ctx.stroke();
     }
 
-    // --- NEW: Render Sprites (Targets) ---
-    // Sort targets from far to near
+    // Render Sprites (Targets)
     targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
 
     targets.forEach(target => {
@@ -169,15 +171,13 @@ function render() {
                 const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
                 const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
                 const spriteWidth = spriteHeight;
-
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-                const drawEndY = Math.floor(spriteHeight / 2 + screenHeight / 2);
                 const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
 
                 for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
                     if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                        ctx.fillStyle = "red"; // Target color
+                        ctx.fillStyle = "red";
                         ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
                     }
                 }
@@ -185,16 +185,32 @@ function render() {
         }
     });
 
-    // --- NEW: Render Score HUD ---
+    // Render Score HUD
     ctx.fillStyle = "white";
     ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
 }
 
+// --- Game Loop ---
 function gameLoop() {
     updateGame();
     render();
     requestAnimationFrame(gameLoop);
 }
-
 gameLoop();
+
+
+// --- NEW: Fullscreen Button Logic ---
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+fullscreenBtn.addEventListener('click', () => {
+    const elem = document.documentElement;
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) { /* Firefox */
+        elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) { /* Chrome, Safari & Opera */
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) { /* IE/Edge */
+        elem.msRequestFullscreen();
+    }
+});
