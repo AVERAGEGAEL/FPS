@@ -9,6 +9,7 @@ canvas.width = screenWidth;
 canvas.height = screenHeight;
 
 // --- Map ---
+// Defined as map[y][x]
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -29,9 +30,7 @@ const map = [
 ];
 
 // --- Player ---
-const player = { x: 2.5, y: 2.5, dirX: -1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05, rotSpeed: 0.03 };
-
-// --- NEW: Mouselook ---
+const player = { x: 2.5, y: 2.5, dirX: -1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05 };
 const mouseSensitivity = 0.002;
 
 // --- Targets and Game State ---
@@ -51,11 +50,8 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 
 // --- MOUSE AND SHOOTING INPUT ---
 canvas.addEventListener('click', () => {
-    // Request pointer lock to capture the mouse
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    
-    // The shooting logic now only runs if the pointer is locked
     if(document.pointerLockElement === canvas) {
         shoot();
     }
@@ -64,7 +60,6 @@ canvas.addEventListener('click', () => {
 function shoot() {
     gunshotSound.currentTime = 0;
     gunshotSound.play();
-
     targets.forEach(target => {
         if (target.health > 0) {
             const dist = Math.sqrt((player.x - target.x)**2 + (player.y - target.y)**2);
@@ -73,24 +68,19 @@ function shoot() {
             const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
             if (dotProduct > 0.98 && dist < 10) {
                 target.health -= 25;
-                if (target.health <= 0) {
-                    score += 100;
-                }
+                if (target.health <= 0) score += 100;
             }
         }
     });
 }
 
-// --- NEW: Mouse Movement Handler for Mouselook ---
+// --- Mouselook Handler ---
 function updateRotation(e) {
-    // Only rotate if the pointer is locked
     if (document.pointerLockElement === canvas) {
         const rotSpeed = e.movementX * mouseSensitivity;
-        
         const oldDirX = player.dirX;
         player.dirX = player.dirX * Math.cos(-rotSpeed) - player.dirY * Math.sin(-rotSpeed);
         player.dirY = oldDirX * Math.sin(-rotSpeed) + player.dirY * Math.cos(-rotSpeed);
-        
         const oldPlaneX = player.planeX;
         player.planeX = player.planeX * Math.cos(-rotSpeed) - player.planeY * Math.sin(-rotSpeed);
         player.planeY = oldPlaneX * Math.sin(-rotSpeed) + player.planeY * Math.cos(-rotSpeed);
@@ -98,34 +88,42 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-
+// --- ***DEFINITIVELY FIXED MOVEMENT LOGIC*** ---
 function updateGame() {
-    // Movement (WASD and Arrow Keys)
+    let moveX = 0;
+    let moveY = 0;
+
+    // Calculate movement vector from keys
     if (keys['w'] || keys['arrowup']) {
-        const moveVecX = player.dirX * player.moveSpeed;
-        const moveVecY = player.dirY * player.moveSpeed;
-        if (map[Math.floor(player.x + moveVecX)][Math.floor(player.y)] === 0) player.x += moveVecX;
-        if (map[Math.floor(player.x)][Math.floor(player.y + moveVecY)] === 0) player.y += moveVecY;
+        moveX += player.dirX * player.moveSpeed;
+        moveY += player.dirY * player.moveSpeed;
     }
     if (keys['s'] || keys['arrowdown']) {
-        const moveVecX = player.dirX * player.moveSpeed;
-        const moveVecY = player.dirY * player.moveSpeed;
-        if (map[Math.floor(player.x - moveVecX)][Math.floor(player.y)] === 0) player.x -= moveVecX;
-        if (map[Math.floor(player.x)][Math.floor(player.y - moveVecY)] === 0) player.y -= moveVecY;
-    }
-
-    // Strafing (A and D keys) - Changed from rotation to strafing
-    if (keys['d']) {
-        const strafeVecX = player.planeX * player.moveSpeed;
-        const strafeVecY = player.planeY * player.moveSpeed;
-        if (map[Math.floor(player.x + strafeVecX)][Math.floor(player.y)] === 0) player.x += strafeVecX;
-        if (map[Math.floor(player.x)][Math.floor(player.y + strafeVecY)] === 0) player.y += strafeVecY;
+        moveX -= player.dirX * player.moveSpeed;
+        moveY -= player.dirY * player.moveSpeed;
     }
     if (keys['a']) {
-        const strafeVecX = player.planeX * player.moveSpeed;
-        const strafeVecY = player.planeY * player.moveSpeed;
-        if (map[Math.floor(player.x - strafeVecX)][Math.floor(player.y)] === 0) player.x -= strafeVecX;
-        if (map[Math.floor(player.x)][Math.floor(player.y - strafeVecY)] === 0) player.y -= strafeVecY;
+        moveX -= player.planeX * player.moveSpeed;
+        moveY -= player.planeY * player.moveSpeed;
+    }
+    if (keys['d']) {
+        moveX += player.planeX * player.moveSpeed;
+        moveY += player.planeY * player.moveSpeed;
+    }
+
+    // Perform collision detection and movement
+    const newPosX = player.x + moveX;
+    const newPosY = player.y + moveY;
+
+    // Check X-axis movement
+    // CORRECTED to map[y][x] format
+    if (map[Math.floor(player.y)][Math.floor(newPosX)] === 0) {
+        player.x = newPosX;
+    }
+    // Check Y-axis movement
+    // CORRECTED to map[y][x] format
+    if (map[Math.floor(newPosY)][Math.floor(player.x)] === 0) {
+        player.y = newPosY;
     }
 }
 
@@ -141,7 +139,6 @@ function render() {
         const cameraX = 2 * x / screenWidth - 1;
         const rayDirX = player.dirX + player.planeX * cameraX;
         const rayDirY = player.dirY + player.planeY * cameraX;
-
         let mapX = Math.floor(player.x);
         let mapY = Math.floor(player.y);
         let deltaDistX = Math.abs(1 / rayDirX);
@@ -153,12 +150,12 @@ function render() {
 
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            if (map[mapX][mapY] > 0) hit = 1;
+            // CORRECTED to map[y][x] format
+            if (map[mapY][mapX] > 0) hit = 1;
         }
 
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
         zBuffer[x] = perpWallDist;
-
         const lineHeight = Math.floor(screenHeight / perpWallDist);
         let drawStart = -lineHeight / 2 + screenHeight / 2;
         if (drawStart < 0) drawStart = 0;
@@ -187,39 +184,4 @@ function render() {
                 const spriteWidth = spriteHeight;
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
-                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
-                    if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                        ctx.fillStyle = "red";
-                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
-                    }
-                }
-            }
-        }
-    });
-
-    ctx.fillStyle = "white";
-    ctx.font = "24px Arial";
-    ctx.fillText("Score: " + score, 10, 30);
-}
-
-function gameLoop() {
-    updateGame();
-    render();
-    requestAnimationFrame(gameLoop);
-}
-gameLoop();
-
-const fullscreenBtn = document.getElementById('fullscreenBtn');
-fullscreenBtn.addEventListener('click', () => {
-    const elem = document.body; 
-    if (elem.requestFullscreen) {
-        elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) {
-        elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-    }
-});
+                const drawEndX
