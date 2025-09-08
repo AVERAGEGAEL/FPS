@@ -9,19 +9,18 @@ canvas.width = screenWidth;
 canvas.height = screenHeight;
 
 // --- Map ---
-// 1 represents a wall, 0 is an empty space.
 const mapWidth = 16;
 const mapHeight = 16;
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
-    [1,0,1,1,0,0,1,0,1,1,1,0,1,0,0,1],
-    [1,0,1,0,0,0,1,0,0,0,1,0,1,0,0,1],
-    [1,0,0,0,0,1,1,0,0,0,0,0,0,0,0,1],
-    [1,0,1,0,0,0,0,0,1,1,0,0,1,0,0,1],
-    [1,0,1,1,1,1,1,0,0,0,0,0,1,0,0,1],
-    [1,0,0,0,0,0,1,0,0,1,0,1,1,0,0,1],
-    [1,0,1,1,1,0,1,0,0,1,0,0,0,0,0,1],
+    [1,0,1,1,0,0,0,0,0,0,0,0,1,0,0,1],
+    [1,0,1,0,0,0,0,1,1,0,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
+    [1,0,0,0,0,1,1,0,0,0,0,0,1,0,0,1],
+    [1,0,0,0,0,1,1,0,0,0,0,0,1,0,0,1],
+    [1,0,0,0,0,0,0,0,0,1,0,1,1,0,0,1],
+    [1,0,1,1,1,0,0,0,0,1,0,0,0,0,0,1],
     [1,0,0,0,1,0,0,0,0,1,1,1,1,0,0,1],
     [1,0,1,0,1,0,0,1,0,0,0,0,0,0,0,1],
     [1,0,1,0,0,0,0,1,0,1,0,1,0,1,0,1],
@@ -32,32 +31,54 @@ const map = [
 ];
 
 // --- Player ---
-const player = {
-    x: 8.0,
-    y: 8.0,
-    dirX: -1.0,
-    dirY: 0.0,
-    planeX: 0.0,
-    planeY: 0.66,
-    moveSpeed: 0.05,
-    rotSpeed: 0.03
-};
+const player = { x: 2.5, y: 2.5, dirX: -1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05, rotSpeed: 0.03 };
 
-// --- NEW: Collectible Treasure ---
-const treasure = {
-    x: 3.5,
-    y: 3.5,
-    collected: false
-};
-const initialPlayerPos = {x: player.x, y: player.y}; // Store initial positions for reset
+// --- NEW: Targets and Game State ---
+let targets = [
+    { x: 4.5, y: 4.5, health: 100 },
+    { x: 10.5, y: 2.5, health: 100 },
+    { x: 8.5, y: 12.5, health: 100 }
+];
+let score = 0;
+const gunshotSound = new Audio('shot.wav'); // MAKE SURE your sound file is named shot.wav!
+gunshotSound.volume = 0.5;
 
-// --- Keyboard Input ---
+// --- Controls ---
 const keys = {};
 document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
 document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
+// --- NEW: Shooting Input ---
+canvas.addEventListener('click', () => {
+    // Play sound
+    gunshotSound.currentTime = 0;
+    gunshotSound.play();
+
+    // Check for target hit
+    targets.forEach(target => {
+        if (target.health > 0) {
+            const dist = Math.sqrt((player.x - target.x)**2 + (player.y - target.y)**2);
+            // Vector from player to target
+            const targetVecX = (target.x - player.x) / dist;
+            const targetVecY = (target.y - player.y) / dist;
+            // Dot product to see if target is in front of player
+            const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
+
+            // Check if target is roughly in the center of view (dot product > 0.98 is a narrow cone) and within range
+            if (dotProduct > 0.98 && dist < 10) {
+                target.health -= 25; // Damage
+                if (target.health <= 0) {
+                    score += 100;
+                    console.log("Target eliminated! Score:", score);
+                }
+            }
+        }
+    });
+});
+
+
 function updateGame() {
-    // Move forward/backward (with Arrow Keys and WASD)
+    // Movement
     if (keys['w'] || keys['arrowup']) {
         if (map[Math.floor(player.x + player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) player.x += player.dirX * player.moveSpeed;
         if (map[Math.floor(player.x)][Math.floor(player.y + player.dirY * player.moveSpeed)] === 0) player.y += player.dirY * player.moveSpeed;
@@ -66,8 +87,7 @@ function updateGame() {
         if (map[Math.floor(player.x - player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) player.x -= player.dirX * player.moveSpeed;
         if (map[Math.floor(player.x)][Math.floor(player.y - player.dirY * player.moveSpeed)] === 0) player.y -= player.dirY * player.moveSpeed;
     }
-
-    // Rotate left/right (with Arrow Keys and WASD)
+    // Rotation
     if (keys['d'] || keys['arrowright']) {
         const oldDirX = player.dirX;
         player.dirX = player.dirX * Math.cos(-player.rotSpeed) - player.dirY * Math.sin(-player.rotSpeed);
@@ -84,29 +104,18 @@ function updateGame() {
         player.planeX = player.planeX * Math.cos(player.rotSpeed) - player.planeY * Math.sin(player.rotSpeed);
         player.planeY = oldPlaneX * Math.sin(player.rotSpeed) + player.planeY * Math.cos(player.rotSpeed);
     }
-
-    // --- NEW: Check for Win Condition ---
-    const distToTreasure = Math.sqrt((player.x - treasure.x)**2 + (player.y - treasure.y)**2);
-    if (distToTreasure < 0.5 && !treasure.collected) {
-        treasure.collected = true;
-        alert("You found the treasure! You win!");
-        // Reset game
-        player.x = initialPlayerPos.x;
-        player.y = initialPlayerPos.y;
-        treasure.collected = false;
-    }
 }
 
 function render() {
-    // Draw Sky and Floor
+    // Sky and Floor
     ctx.fillStyle = '#3498db';
     ctx.fillRect(0, 0, screenWidth, screenHeight / 2);
     ctx.fillStyle = '#7f8c8d';
     ctx.fillRect(0, screenHeight / 2, screenWidth, screenHeight / 2);
 
-    const zBuffer = []; // Array to store wall distances for each vertical stripe
+    const zBuffer = [];
 
-    // Ray Casting for Walls
+    // Walls
     for (let x = 0; x < screenWidth; x++) {
         const cameraX = 2 * x / screenWidth - 1;
         const rayDirX = player.dirX + player.planeX * cameraX;
@@ -114,24 +123,20 @@ function render() {
 
         let mapX = Math.floor(player.x);
         let mapY = Math.floor(player.y);
-
         let deltaDistX = Math.abs(1 / rayDirX);
         let deltaDistY = Math.abs(1 / rayDirY);
         let stepX, stepY, sideDistX, sideDistY, hit = 0, side;
 
-        if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; }
-        else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
-        if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; }
-        else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
+        if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; } else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
+        if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; } else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
 
         while (hit === 0) {
-            if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; }
-            else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
+            if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
             if (map[mapX][mapY] > 0) hit = 1;
         }
 
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
-        zBuffer[x] = perpWallDist; // Store distance in z-buffer
+        zBuffer[x] = perpWallDist;
 
         const lineHeight = Math.floor(screenHeight / perpWallDist);
         let drawStart = -lineHeight / 2 + screenHeight / 2;
@@ -147,35 +152,43 @@ function render() {
         ctx.stroke();
     }
 
-    // --- NEW: Sprite (Treasure) Rendering ---
-    if (!treasure.collected) {
-        const spriteX = treasure.x - player.x;
-        const spriteY = treasure.y - player.y;
+    // --- NEW: Render Sprites (Targets) ---
+    // Sort targets from far to near
+    targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
 
-        const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
-        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY); // Depth
-        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY); // Screen X
+    targets.forEach(target => {
+        if (target.health > 0) {
+            const spriteX = target.x - player.x;
+            const spriteY = target.y - player.y;
 
-        if (transformX > 0) { // Check if sprite is in front of the player
-            const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
-            const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
-            const spriteWidth = spriteHeight;
+            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+            const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+            const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
 
-            const drawStartY = -spriteHeight / 2 + screenHeight / 2;
-            const drawStartX = -spriteWidth / 2 + spriteScreenX;
+            if (transformX > 0) {
+                const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
+                const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
+                const spriteWidth = spriteHeight;
 
-            // Loop through the sprite's vertical stripes
-            for (let stripe = Math.floor(drawStartX); stripe < Math.floor(drawStartX + spriteWidth); stripe++) {
-                // Check if the stripe is on screen and in front of a wall
-                if (stripe > 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                    ctx.beginPath();
-                    ctx.fillStyle = "yellow"; // Treasure color
-                    ctx.arc(stripe, drawStartY + spriteHeight / 2, spriteWidth / 10, 0, Math.PI * 2);
-                    ctx.fill();
+                const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
+                const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
+                const drawEndY = Math.floor(spriteHeight / 2 + screenHeight / 2);
+                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
+
+                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+                    if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
+                        ctx.fillStyle = "red"; // Target color
+                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                    }
                 }
             }
         }
-    }
+    });
+
+    // --- NEW: Render Score HUD ---
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.fillText("Score: " + score, 10, 30);
 }
 
 function gameLoop() {
@@ -184,5 +197,4 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start the game loop
-requestAnimationFrame(gameLoop);
+gameLoop();
