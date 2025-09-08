@@ -71,22 +71,29 @@ canvas.addEventListener('click', () => {
 });
 
 function updateGame() {
-    // --- MOVEMENT BUG FIX ---
-    // This new logic checks X and Y collisions separately to allow sliding along walls.
+    // --- MOVEMENT BUG: THE REAL FIX ---
     if (keys['w'] || keys['arrowup']) {
-        if (map[Math.floor(player.x + player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) {
-            player.x += player.dirX * player.moveSpeed;
+        const moveVecX = player.dirX * player.moveSpeed;
+        const moveVecY = player.dirY * player.moveSpeed;
+        // Check X-coord collision
+        if (map[Math.floor(player.x + moveVecX)][Math.floor(player.y)] === 0) {
+            player.x += moveVecX;
         }
-        if (map[Math.floor(player.x)][Math.floor(player.y + player.dirY * player.moveSpeed)] === 0) {
-            player.y += player.dirY * player.moveSpeed;
+        // Check Y-coord collision
+        if (map[Math.floor(player.x)][Math.floor(player.y + moveVecY)] === 0) {
+            player.y += moveVecY;
         }
     }
     if (keys['s'] || keys['arrowdown']) {
-        if (map[Math.floor(player.x - player.dirX * player.moveSpeed)][Math.floor(player.y)] === 0) {
-            player.x -= player.dirX * player.moveSpeed;
+        const moveVecX = player.dirX * player.moveSpeed;
+        const moveVecY = player.dirY * player.moveSpeed;
+        // Check X-coord collision
+        if (map[Math.floor(player.x - moveVecX)][Math.floor(player.y)] === 0) {
+            player.x -= moveVecX;
         }
-        if (map[Math.floor(player.x)][Math.floor(player.y - player.dirY * player.moveSpeed)] === 0) {
-            player.y -= player.dirY * player.moveSpeed;
+        // Check Y-coord collision
+        if (map[Math.floor(player.x)][Math.floor(player.y - moveVecY)] === 0) {
+            player.y -= moveVecY;
         }
     }
 
@@ -200,10 +207,11 @@ function gameLoop() {
 gameLoop();
 
 
-// --- NEW: Fullscreen Button Logic ---
+// --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 fullscreenBtn.addEventListener('click', () => {
-    const elem = document.documentElement;
+    // Target the main body of the page for fullscreen
+    const elem = document.body; 
     if (elem.requestFullscreen) {
         elem.requestFullscreen();
     } else if (elem.mozRequestFullScreen) { /* Firefox */
