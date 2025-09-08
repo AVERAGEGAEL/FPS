@@ -9,6 +9,8 @@ canvas.width = screenWidth;
 canvas.height = screenHeight;
 
 // --- Map ---
+const mapHeight = 16;
+const mapWidth = 16;
 // Defined as map[y][x]
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
@@ -94,37 +96,53 @@ function updateGame() {
     
     // Forward/Backward Movement
     if (keys['w'] || keys['arrowup']) {
-        if (map[Math.floor(player.y)][Math.floor(player.x + player.dirX * moveSpeed)] === 0) {
-            player.x += player.dirX * moveSpeed;
+        const newX = player.x + player.dirX * moveSpeed;
+        const newY = player.y + player.dirY * moveSpeed;
+        // Check X-coord with boundary check
+        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
+            player.x = newX;
         }
-        if (map[Math.floor(player.y + player.dirY * moveSpeed)][Math.floor(player.x)] === 0) {
-            player.y += player.dirY * moveSpeed;
+        // Check Y-coord with boundary check
+        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
+            player.y = newY;
         }
     }
     if (keys['s'] || keys['arrowdown']) {
-        if (map[Math.floor(player.y)][Math.floor(player.x - player.dirX * moveSpeed)] === 0) {
-            player.x -= player.dirX * moveSpeed;
+        const newX = player.x - player.dirX * moveSpeed;
+        const newY = player.y - player.dirY * moveSpeed;
+        // Check X-coord with boundary check
+        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
+            player.x = newX;
         }
-        if (map[Math.floor(player.y - player.dirY * moveSpeed)][Math.floor(player.x)] === 0) {
-            player.y -= player.dirY * moveSpeed;
+        // Check Y-coord with boundary check
+        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
+            player.y = newY;
         }
     }
     
     // Strafing Movement
     if (keys['a']) {
-        if (map[Math.floor(player.y)][Math.floor(player.x - player.planeX * moveSpeed)] === 0) {
-            player.x -= player.planeX * moveSpeed;
+        const newX = player.x - player.planeX * moveSpeed;
+        const newY = player.y - player.planeY * moveSpeed;
+        // Check X-coord with boundary check
+        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
+            player.x = newX;
         }
-        if (map[Math.floor(player.y - player.planeY * moveSpeed)][Math.floor(player.x)] === 0) {
-            player.y -= player.planeY * moveSpeed;
+        // Check Y-coord with boundary check
+        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
+            player.y = newY;
         }
     }
     if (keys['d']) {
-        if (map[Math.floor(player.y)][Math.floor(player.x + player.planeX * moveSpeed)] === 0) {
-            player.x += player.planeX * moveSpeed;
+        const newX = player.x + player.planeX * moveSpeed;
+        const newY = player.y + player.planeY * moveSpeed;
+        // Check X-coord with boundary check
+        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
+            player.x = newX;
         }
-        if (map[Math.floor(player.y + player.planeY * moveSpeed)][Math.floor(player.x)] === 0) {
-            player.y += player.planeY * moveSpeed;
+        // Check Y-coord with boundary check
+        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
+            player.y = newY;
         }
     }
 }
@@ -153,7 +171,10 @@ function render() {
 
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            if (map[mapY][mapX] > 0) hit = 1;
+            // Added boundary check here as well for safety
+            if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) {
+                hit = 1;
+            }
         }
 
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
