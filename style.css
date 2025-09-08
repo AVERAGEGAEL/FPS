@@ -25,3 +25,17 @@ canvas {
     text-shadow: 1px 1px 2px black; /* Makes it visible on any background */
     pointer-events: none; /* Allows mouse clicks to go through to the canvas */
 }
+
+button {
+    padding: 10px 20px;
+    font-size: 16px;
+    background-color: #555;
+    color: white;
+    border: 1px solid #fff;
+    cursor: pointer;
+    margin-top: 5px;
+}
+
+button:hover {
+    background-color: #777;
+}
