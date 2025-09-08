@@ -12,4 +12,16 @@ canvas {
     border: 2px solid #fff;
     display: block;
     margin: 20px auto;
+    cursor: crosshair; /* Changes the mouse icon when over the game */
+}
+
+#crosshair {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    font-size: 24px;
+    color: white;
+    text-shadow: 1px 1px 2px black; /* Makes it visible on any background */
+    pointer-events: none; /* Allows mouse clicks to go through to the canvas */
 }
