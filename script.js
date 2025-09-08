@@ -90,42 +90,45 @@ document.addEventListener('mousemove', updateRotation);
 
 // --- ***DEFINITIVELY FIXED MOVEMENT LOGIC*** ---
 function updateGame() {
-    let moveX = 0;
-    let moveY = 0;
-
-    // Calculate movement vector from keys
+    const moveSpeed = player.moveSpeed;
+    
+    // Forward/Backward Movement
     if (keys['w'] || keys['arrowup']) {
-        moveX += player.dirX * player.moveSpeed;
-        moveY += player.dirY * player.moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x + player.dirX * moveSpeed)] === 0) {
+            player.x += player.dirX * moveSpeed;
+        }
+        if (map[Math.floor(player.y + player.dirY * moveSpeed)][Math.floor(player.x)] === 0) {
+            player.y += player.dirY * moveSpeed;
+        }
     }
     if (keys['s'] || keys['arrowdown']) {
-        moveX -= player.dirX * player.moveSpeed;
-        moveY -= player.dirY * player.moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x - player.dirX * moveSpeed)] === 0) {
+            player.x -= player.dirX * moveSpeed;
+        }
+        if (map[Math.floor(player.y - player.dirY * moveSpeed)][Math.floor(player.x)] === 0) {
+            player.y -= player.dirY * moveSpeed;
+        }
     }
+    
+    // Strafing Movement
     if (keys['a']) {
-        moveX -= player.planeX * player.moveSpeed;
-        moveY -= player.planeY * player.moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(player.x - player.planeX * moveSpeed)] === 0) {
+            player.x -= player.planeX * moveSpeed;
+        }
+        if (map[Math.floor(player.y - player.planeY * moveSpeed)][Math.floor(player.x)] === 0) {
+            player.y -= player.planeY * moveSpeed;
+        }
     }
     if (keys['d']) {
-        moveX += player.planeX * player.moveSpeed;
-        moveY += player.planeY * player.moveSpeed;
-    }
-
-    // Perform collision detection and movement
-    const newPosX = player.x + moveX;
-    const newPosY = player.y + moveY;
-
-    // Check X-axis movement
-    // CORRECTED to map[y][x] format
-    if (map[Math.floor(player.y)][Math.floor(newPosX)] === 0) {
-        player.x = newPosX;
-    }
-    // Check Y-axis movement
-    // CORRECTED to map[y][x] format
-    if (map[Math.floor(newPosY)][Math.floor(player.x)] === 0) {
-        player.y = newPosY;
+        if (map[Math.floor(player.y)][Math.floor(player.x + player.planeX * moveSpeed)] === 0) {
+            player.x += player.planeX * moveSpeed;
+        }
+        if (map[Math.floor(player.y + player.planeY * moveSpeed)][Math.floor(player.x)] === 0) {
+            player.y += player.planeY * moveSpeed;
+        }
     }
 }
+
 
 function render() {
     ctx.fillStyle = '#3498db';
@@ -150,7 +153,6 @@ function render() {
 
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            // CORRECTED to map[y][x] format
             if (map[mapY][mapX] > 0) hit = 1;
         }
 
@@ -184,4 +186,39 @@ function render() {
                 const spriteWidth = spriteHeight;
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-                const drawEndX
+                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
+                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+                    if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
+                        ctx.fillStyle = "red";
+                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                    }
+                }
+            }
+        }
+    });
+
+    ctx.fillStyle = "white";
+    ctx.font = "24px Arial";
+    ctx.fillText("Score: " + score, 10, 30);
+}
+
+function gameLoop() {
+    updateGame();
+    render();
+    requestAnimationFrame(gameLoop);
+}
+gameLoop();
+
+const fullscreenBtn = document.getElementById('fullscreenBtn');
+fullscreenBtn.addEventListener('click', () => {
+    const elem = document.body; 
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+        elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+});
