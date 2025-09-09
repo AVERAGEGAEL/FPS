@@ -32,14 +32,14 @@ const map = [
 
 // --- Assets ---
 const botSprite = new Image();
-botSprite.src = 'bot_sprite.png'; // Make sure you upload this file to GitHub!
-const textureWidth = 64;  // Width of a single sprite frame
-const textureHeight = 64; // Height of a single sprite frame
+botSprite.src = 'bot_sprite.png'; // Make sure you have this file in your repo!
+const textureWidth = 64;
+const textureHeight = 64;
 
 // --- Player ---
 const player = { x: 1.5, y: 1.5, dirX: 1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05, health: 100 };
 const mouseSensitivity = 0.002;
-let playerHitTimer = 0; // For damage flash effect
+let playerHitTimer = 0;
 
 // --- CPU Bots ---
 let bots = [
@@ -58,9 +58,7 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 
 // --- MOUSE AND SHOOTING INPUT ---
 canvas.addEventListener('click', () => {
-    if (player.health <= 0) { // Allow restarting the game on click
-        document.location.reload();
-    }
+    if (player.health <= 0) return; // Don't shoot if dead
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
     if (document.pointerLockElement === canvas) {
@@ -105,9 +103,7 @@ document.addEventListener('mousemove', updateRotation);
 // --- Player Movement Logic ---
 function updatePlayerMovement() {
     const moveSpeed = player.moveSpeed;
-    let moveX = 0;
-    let moveY = 0;
-
+    let moveX = 0, moveY = 0;
     if (keys['w'] || keys['arrowup']) { moveX += player.dirX; moveY += player.dirY; }
     if (keys['s'] || keys['arrowdown']) { moveX -= player.dirX; moveY -= player.dirY; }
     if (keys['a'] || keys['arrowleft']) { moveX -= player.planeX; moveY -= player.planeY; }
@@ -118,10 +114,8 @@ function updatePlayerMovement() {
         moveX = (moveX / magnitude) * moveSpeed;
         moveY = (moveY / magnitude) * moveSpeed;
     }
-    
     const nextX = player.x + moveX;
     const nextY = player.y + moveY;
-    
     if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
     if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
 }
@@ -132,8 +126,6 @@ function updateBots() {
         if (bot.health > 0) {
             const dist = Math.sqrt((player.x - bot.x)**2 + (player.y - bot.y)**2);
             bot.shootCooldown--;
-
-            // Check for line of sight
             let hasLineOfSight = true;
             const steps = Math.floor(dist * 4);
             if (steps > 0) {
@@ -146,22 +138,17 @@ function updateBots() {
                     }
                 }
             }
-
-            // If bot sees player, it chases and shoots
             if (hasLineOfSight && dist > 1) {
                 const moveX = ((player.x - bot.x) / dist) * bot.speed;
                 const moveY = ((player.y - bot.y) / dist) * bot.speed;
                 const nextX = bot.x + moveX;
                 const nextY = bot.y + moveY;
-                
                 if (map[Math.floor(bot.y)][Math.floor(nextX)] === 0) bot.x = nextX;
                 if (map[Math.floor(nextY)][Math.floor(bot.x)] === 0) bot.y = nextY;
-
-                // BOT SHOOTING LOGIC
                 if (bot.shootCooldown <= 0) {
                     player.health -= 10;
-                    playerHitTimer = 10; // Trigger damage flash
-                    bot.shootCooldown = 120 + Math.random() * 60; // Reset cooldown (2-3 seconds)
+                    playerHitTimer = 10;
+                    bot.shootCooldown = 120 + Math.random() * 60;
                 }
             }
         }
@@ -170,13 +157,12 @@ function updateBots() {
 
 // --- Main Game Update Function ---
 function update() {
-    if (player.health <= 0) return; // Stop updates if player is dead
+    if (player.health <= 0) return;
     updatePlayerMovement();
     updateBots();
 }
 
 function render() {
-    // Draw sky and floor
     ctx.fillStyle = '#3498db';
     ctx.fillRect(0, 0, screenWidth, screenHeight / 2);
     ctx.fillStyle = '#7f8c8d';
@@ -184,7 +170,6 @@ function render() {
 
     const zBuffer = [];
 
-    // Ray casting for walls
     for (let x = 0; x < screenWidth; x++) {
         const cameraX = 2 * x / screenWidth - 1;
         const rayDirX = player.dirX + player.planeX * cameraX;
@@ -194,15 +179,12 @@ function render() {
         let deltaDistX = Math.abs(1 / rayDirX);
         let deltaDistY = Math.abs(1 / rayDirY);
         let stepX, stepY, sideDistX, sideDistY, hit = 0, side;
-
         if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; } else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
         if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; } else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
-
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
             if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) hit = 1;
         }
-
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
         zBuffer[x] = perpWallDist;
         const lineHeight = Math.floor(screenHeight / perpWallDist);
@@ -210,7 +192,6 @@ function render() {
         if (drawStart < 0) drawStart = 0;
         let drawEnd = lineHeight / 2 + screenHeight / 2;
         if (drawEnd >= screenHeight) drawEnd = screenHeight - 1;
-
         const color = (side === 1) ? '#2c3e50' : '#34495e';
         ctx.strokeStyle = color;
         ctx.beginPath();
@@ -219,7 +200,6 @@ function render() {
         ctx.stroke();
     }
 
-    // --- RENDER BOTS (SPRITES) ---
     bots.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
     bots.forEach(bot => {
         if (bot.health > 0) {
@@ -228,48 +208,36 @@ function render() {
             const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
             const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
             const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
-
             if (transformX > 0) {
                 const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
                 const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
                 const spriteWidth = spriteHeight;
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-                
                 for (let stripe = drawStartX; stripe < drawStartX + spriteWidth; stripe++) {
                     const texX = Math.floor((stripe - drawStartX) * textureWidth / spriteWidth);
                     if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                        ctx.drawImage(botSprite, 
-                            bot.texture.x + texX, bot.texture.y, 1, textureHeight,
-                            stripe, drawStartY, 1, spriteHeight
-                        );
+                        ctx.drawImage(botSprite, bot.texture.x + texX, bot.texture.y, 1, textureHeight, stripe, drawStartY, 1, spriteHeight);
                     }
                 }
             }
         }
     });
 
-    // --- Render HUD ---
     ctx.fillStyle = "white";
     ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
-    // Player Health
     ctx.fillStyle = "red";
     ctx.font = "30px Arial";
     ctx.fillText(`❤️ ${player.health}`, 10, screenHeight - 20);
-
-    // Damage Flash
     if (playerHitTimer > 0) {
         ctx.fillStyle = `rgba(255, 0, 0, ${0.05 * playerHitTimer})`;
         ctx.fillRect(0, 0, screenWidth, screenHeight);
         playerHitTimer--;
     }
-
-    // Game Over Screen
     if (player.health <= 0) {
         document.exitPointerLock();
-        const gameOverScreen = document.getElementById('gameOverScreen');
-        gameOverScreen.style.display = 'flex'; // Make it visible
+        document.getElementById('gameOverScreen').style.display = 'flex';
     }
 }
 
@@ -279,7 +247,14 @@ function gameLoop() {
     render();
     requestAnimationFrame(gameLoop);
 }
-gameLoop();
+
+// --- FIXED: Wait for the bot sprite to load before starting the game ---
+botSprite.onload = () => {
+    gameLoop();
+};
+botSprite.onerror = () => {
+    alert("Error: Could not load bot_sprite.png. Make sure the file is in your repository and the name is correct.");
+};
 
 // --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -292,18 +267,18 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "7.0-action";
+const gameVersion = "7.1-stable";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
 
-// --- Add Game Over HTML dynamically ---
+// --- Add Game Over HTML and Restart Logic ---
 const gameOverScreen = document.createElement('div');
 gameOverScreen.id = 'gameOverScreen';
-gameOverScreen.innerHTML = `
-    <div>
-        <h1>YOU DIED</h1>
-        <p style="font-size: 24px;">Click to Restart</p>
-    </div>
-`;
+gameOverScreen.innerHTML = `<div><h1>YOU DIED</h1><p style="font-size: 24px;">Click to Restart</p></div>`;
 document.body.appendChild(gameOverScreen);
+
+// --- FIXED: Added a separate event listener for the game over screen ---
+gameOverScreen.addEventListener('click', () => {
+    document.location.reload();
+});
