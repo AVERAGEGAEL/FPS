@@ -102,7 +102,6 @@ document.addEventListener('mousemove', updateRotation);
 // --- Game Logic Update ---
 function update() {
     if (player.health <= 0) return;
-
     // Player Movement
     const moveSpeed = player.moveSpeed;
     let moveX = 0, moveY = 0;
@@ -220,7 +219,7 @@ function render() {
 
     botScreenPos.sort((a, b) => b.transformX - a.transformX);
     
-    // --- FINAL FIX: Simplified and Robust Sprite Rendering ---
+    // --- *** THE FINAL, SIMPLIFIED, AND WORKING SPRITE RENDERER *** ---
     botScreenPos.forEach(pos => {
         if (pos.bot.health > 0 && pos.transformX > 0) {
             const spriteScreenX = Math.floor((screenWidth / 2) * (1 + pos.transformY / pos.transformX));
@@ -229,13 +228,17 @@ function render() {
             const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
             const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
 
-            // ULTIMATE FIX: Check if the sprite is even on screen before trying to check the zBuffer.
-            // This prevents the game from crashing when a bot is off-screen.
-            const centerStripe = Math.floor(drawStartX + spriteWidth / 2);
+            // Check if the center of the sprite is on-screen and in front of a wall
+            const centerStripe = Math.floor(spriteScreenX);
             if (centerStripe >= 0 && centerStripe < screenWidth && pos.transformX < zBuffer[centerStripe]) {
+                // If the sprite image has loaded, draw it.
                 if (botSprite.complete && botSprite.width > 0) {
-                    ctx.drawImage(botSprite, 0, 0, textureWidth, textureHeight, drawStartX, drawStartY, spriteWidth, spriteHeight);
+                    ctx.drawImage(botSprite, 
+                        0, 0, textureWidth, textureHeight, // Source Rect (the whole first frame)
+                        drawStartX, drawStartY, spriteWidth, spriteHeight // Destination Rect
+                    );
                 } else {
+                    // Otherwise, draw the purple fallback box.
                     ctx.fillStyle = "purple";
                     ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
                 }
@@ -273,6 +276,7 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
+// Start the game loop after the image has tried to load
 botSprite.onload = () => { gameLoop(); };
 botSprite.onerror = () => {
     alert("WARNING: Could not load bot_sprite.png. Bots will be purple. Check filename and location.");
@@ -290,7 +294,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "10.1-final";
+const gameVersion = "11.0-stable";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
