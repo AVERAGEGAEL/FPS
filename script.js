@@ -36,9 +36,9 @@ const mouseSensitivity = 0.002;
 
 // --- Targets and Game State ---
 let targets = [
-    { x: 4.5, y: 4.5, health: 100, maxHealth: 100 },
-    { x: 10.5, y: 2.5, health: 100, maxHealth: 100 },
-    { x: 8.5, y: 12.5, health: 100, maxHealth: 100 }
+    { x: 4.5, y: 4.5, health: 100 },
+    { x: 10.5, y: 2.5, health: 100 },
+    { x: 8.5, y: 12.5, health: 100 }
 ];
 let score = 0;
 const gunshotSound = new Audio('shot.wav');
@@ -69,8 +69,10 @@ function shoot() {
             const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
             if (dotProduct > 0.98 && dist < 10) {
                 target.health -= 25;
-                if (target.health < 0) target.health = 0; // Prevent negative health
-                if (target.health === 0) score += 100;
+                if (target.health <= 0) {
+                    target.health = 0;
+                    score += 100;
+                }
             }
         }
     });
@@ -79,16 +81,14 @@ function shoot() {
 // --- Mouselook Handler ---
 function updateRotation(e) {
     if (document.pointerLockElement === canvas) {
-        // FIXED: Inverted the rotation speed to feel correct.
-        const rotSpeed = -e.movementX * mouseSensitivity;
-
+        // Corrected mouse inversion
+        const rotSpeed = e.movementX * mouseSensitivity;
         const oldDirX = player.dirX;
-        player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
-        player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
-
+        player.dirX = player.dirX * Math.cos(-rotSpeed) - player.dirY * Math.sin(-rotSpeed);
+        player.dirY = oldDirX * Math.sin(-rotSpeed) + player.dirY * Math.cos(-rotSpeed);
         const oldPlaneX = player.planeX;
-        player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
-        player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
+        player.planeX = player.planeX * Math.cos(-rotSpeed) - player.planeY * Math.sin(-rotSpeed);
+        player.planeY = oldPlaneX * Math.sin(-rotSpeed) + player.planeY * Math.cos(-rotSpeed);
     }
 }
 document.addEventListener('mousemove', updateRotation);
@@ -121,10 +121,10 @@ function updateGame() {
         moveX = (moveX / magnitude) * moveSpeed;
         moveY = (moveY / magnitude) * moveSpeed;
     }
-
+    
     const nextX = player.x + moveX;
     const nextY = player.y + moveY;
-
+    
     if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) {
         player.x = nextX;
     }
@@ -180,59 +180,31 @@ function render() {
         ctx.stroke();
     }
 
-    // --- *** REWRITTEN AND FIXED SPRITE RENDERING LOGIC *** ---
-    // Sort targets from farthest to nearest
-    targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
-    
-    for (const target of targets) {
-        if (target.health <= 0) continue; // Skip dead targets
+    // --- STABLE SPRITE RENDERING (NO SORTING OR HEALTH BARS) ---
+    targets.forEach(target => {
+        if (target.health > 0) {
+            const spriteX = target.x - player.x;
+            const spriteY = target.y - player.y;
+            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+            const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+            const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
 
-        // Translate sprite position to relative to camera
-        const spriteX = target.x - player.x;
-        const spriteY = target.y - player.y;
+            if (transformX > 0) {
+                const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
+                const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
+                const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
+                const drawStartX = Math.floor(-spriteHeight / 2 + spriteScreenX);
+                const drawEndX = Math.floor(spriteHeight / 2 + spriteScreenX);
 
-        // Transform sprite with the inverse camera matrix
-        const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
-        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
-        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
-
-        if (transformX > 0) { // If it's in front of the camera
-            const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
-            const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
-            
-            // Calculate drawing coordinates
-            const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
-            const drawEndY = Math.floor(spriteHeight / 2 + screenHeight / 2);
-            const drawStartX = Math.floor(-spriteHeight / 2 + spriteScreenX);
-            const drawEndX = Math.floor(spriteHeight / 2 + spriteScreenX);
-
-            // Loop through the vertical stripes of the sprite on the screen
-            for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
-                if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                    // Draw the sprite stripe
-                    ctx.fillStyle = "red";
-                    ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+                    if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
+                        ctx.fillStyle = "red";
+                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                    }
                 }
             }
-
-            // --- NEW: Draw Health Bar ---
-            const healthBarWidth = spriteHeight / 2;
-            const healthBarHeight = 10;
-            const healthBarX = -healthBarWidth / 2 + spriteScreenX;
-            const healthBarY = drawStartY - healthBarHeight - 5; // 5 pixels above the sprite
-            
-            if (healthBarY > 0 && healthBarY < screenHeight) { // Only draw if on screen
-                 // Background (damage taken)
-                ctx.fillStyle = '#555';
-                ctx.fillRect(healthBarX, healthBarY, healthBarWidth, healthBarHeight);
-                // Foreground (current health)
-                const currentHealthWidth = healthBarWidth * (target.health / target.maxHealth);
-                ctx.fillStyle = '#00FF00'; // Green
-                ctx.fillRect(healthBarX, healthBarY, currentHealthWidth, healthBarHeight);
-            }
         }
-    }
-
+    });
 
     // Render HUD
     ctx.fillStyle = "white";
@@ -250,4 +222,21 @@ gameLoop();
 
 // --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
-fullscreenBtn.addEventListener('click', ()
+fullscreenBtn.addEventListener('click', () => {
+    const elem = document.body; 
+    if (elem.requestFullscreen) {
+        elem.requestFullscreen();
+    } else if (elem.mozRequestFullScreen) {
+        elem.mozRequestFullScreen();
+    } else if (elem.webkitRequestFullscreen) {
+        elem.webkitRequestFullscreen();
+    } else if (elem.msRequestFullscreen) {
+        elem.msRequestFullscreen();
+    }
+});
+
+// --- Version Display ---
+const gameVersion = "4.0-safe-mode";
+const updateTimestamp = new Date().toLocaleDateString();
+const versionDisplay = document.getElementById('version-info');
+versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
