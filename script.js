@@ -90,7 +90,7 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- *** STABLE AND CORRECTED MOVEMENT LOGIC *** ---
+// --- Stable Movement Logic ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
 
@@ -224,3 +224,9 @@ fullscreenBtn.addEventListener('click', () => {
         elem.msRequestFullscreen();
     }
 });
+
+// --- NEW: Version Display ---
+const gameVersion = "1.2";
+const updateTimestamp = "9/9/2025, 8:42 AM PDT";
+const versionDisplay = document.getElementById('version-info');
+versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
