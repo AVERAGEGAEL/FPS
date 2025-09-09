@@ -1,7 +1,7 @@
 // Get the canvas and its 2D rendering context
 const canvas = document.getElementById('gameCanvas');
 const ctx = canvas.getContext('2d');
-const abilityHud = document.getElementById('ability-hud'); // Get HUD element
+const abilityHud = document.getElementById('ability-hud');
 
 // --- Game Settings ---
 const screenWidth = 640;
@@ -147,7 +147,6 @@ function update() {
                 const botNextY = bot.y + botMoveY;
                 if (map[Math.floor(bot.y)][Math.floor(botNextX)] === 0) bot.x = botNextX;
                 if (map[Math.floor(botNextY)][Math.floor(bot.x)] === 0) bot.y = botNextY;
-
                 if (bot.shootCooldown <= 0) {
                     player.health -= 10;
                     if(player.health < 0) player.health = 0;
@@ -158,10 +157,9 @@ function update() {
         }
     });
 
-    // --- NEW: Ability Cooldown Logic ---
+    // --- Ability Cooldown Logic ---
     if (player.markCooldown > 0) player.markCooldown--;
     if (player.markActiveTimer > 0) player.markActiveTimer--;
-
     if (keys['e'] && player.markCooldown <= 0) {
         player.markCooldown = 600; // 10 seconds
         player.markActiveTimer = 180; // 3 seconds
@@ -169,41 +167,34 @@ function update() {
 }
 
 function render() {
-    // Stored bot screen positions for rendering markers and sprites
     const botScreenPos = [];
     bots.forEach(bot => {
         const spriteX = bot.x - player.x;
         const spriteY = bot.y - player.y;
         const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
-        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY); // Depth
-        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY); // Screen X
-        botScreenPos.push({ transformX, transformY, bot }); // Store calculated values
+        const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+        const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
+        botScreenPos.push({ transformX, transformY, bot });
     });
 
-    // Draw sky and floor
-    ctx.fillStyle = '#3498db';
-    ctx.fillRect(0, 0, screenWidth, screenHeight / 2);
-    ctx.fillStyle = '#7f8c8d';
-    ctx.fillRect(0, screenHeight / 2, screenWidth, screenHeight / 2);
+    ctx.fillStyle = '#3498db'; ctx.fillRect(0, 0, screenWidth, screenHeight / 2);
+    ctx.fillStyle = '#7f8c8d'; ctx.fillRect(0, screenHeight / 2, screenWidth, screenHeight / 2);
 
-    // --- NEW: Render "Wall Hack" Markers (drawn behind walls) ---
     if (player.markActiveTimer > 0) {
         botScreenPos.forEach(pos => {
             if (pos.bot.health > 0 && pos.transformX > 0) {
                 const spriteScreenX = Math.floor((screenWidth / 2) * (1 + pos.transformY / pos.transformX));
                 const spriteHeight = Math.abs(Math.floor(screenHeight / pos.transformX));
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
-
                 ctx.beginPath();
                 ctx.arc(spriteScreenX, drawStartY + spriteHeight / 2, spriteHeight / 2, 0, Math.PI * 2);
-                ctx.fillStyle = "rgba(255, 255, 0, 0.5)"; // Semi-transparent yellow
+                ctx.fillStyle = "rgba(255, 255, 0, 0.5)";
                 ctx.fill();
             }
         });
     }
 
     const zBuffer = [];
-    // Ray casting for walls
     for (let x = 0; x < screenWidth; x++) {
         const cameraX = 2 * x / screenWidth - 1;
         const rayDirX = player.dirX + player.planeX * cameraX;
@@ -211,15 +202,12 @@ function render() {
         let mapX = Math.floor(player.x), mapY = Math.floor(player.y);
         let deltaDistX = Math.abs(1 / rayDirX), deltaDistY = Math.abs(1 / rayDirY);
         let stepX, stepY, sideDistX, sideDistY, hit = 0, side;
-
         if (rayDirX < 0) { stepX = -1; sideDistX = (player.x - mapX) * deltaDistX; } else { stepX = 1; sideDistX = (mapX + 1.0 - player.x) * deltaDistX; }
         if (rayDirY < 0) { stepY = -1; sideDistY = (player.y - mapY) * deltaDistY; } else { stepY = 1; sideDistY = (mapY + 1.0 - player.y) * deltaDistY; }
-
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
             if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) hit = 1;
         }
-
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
         zBuffer[x] = perpWallDist;
         const lineHeight = Math.floor(screenHeight / perpWallDist);
@@ -227,7 +215,6 @@ function render() {
         if (drawStart < 0) drawStart = 0;
         let drawEnd = lineHeight / 2 + screenHeight / 2;
         if (drawEnd >= screenHeight) drawEnd = screenHeight - 1;
-
         const color = (side === 1) ? '#2c3e50' : '#34495e';
         ctx.strokeStyle = color;
         ctx.beginPath();
@@ -236,8 +223,7 @@ function render() {
         ctx.stroke();
     }
 
-    // --- FINAL FIX: SIMPLIFIED SPRITE RENDERING ---
-    botScreenPos.sort((a, b) => b.transformX - a.transformX); // Sort based on depth
+    botScreenPos.sort((a, b) => b.transformX - a.transformX);
     botScreenPos.forEach(pos => {
         if (pos.bot.health > 0 && pos.transformX > 0) {
             const spriteScreenX = Math.floor((screenWidth / 2) * (1 + pos.transformY / pos.transformX));
@@ -245,26 +231,26 @@ function render() {
             const spriteWidth = spriteHeight;
             const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
             const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-
-            // Check if the sprite is behind a wall before drawing
-            let visible = false;
+            
+            let isVisible = false;
             for(let i = drawStartX; i < drawStartX + spriteWidth; i++) {
                 if (i >= 0 && i < screenWidth && pos.transformX < zBuffer[i]) {
-                    visible = true;
+                    isVisible = true;
                     break;
                 }
             }
-
-            if(visible) {
-                ctx.drawImage(botSprite,
-                    0, 0, textureWidth, textureHeight, // Source rect (the whole first frame)
-                    drawStartX, drawStartY, spriteWidth, spriteHeight // Destination rect
-                );
+            if (isVisible) {
+                // --- FINAL FIX: Draw sprite if loaded, otherwise draw a purple box ---
+                if (botSprite.width > 0) {
+                    ctx.drawImage(botSprite, 0, 0, textureWidth, textureHeight, drawStartX, drawStartY, spriteWidth, spriteHeight);
+                } else {
+                    ctx.fillStyle = "purple"; // Fallback color
+                    ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
+                }
             }
         }
     });
 
-    // --- Render HUD ---
     ctx.fillStyle = "white"; ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
     ctx.fillStyle = "red"; ctx.font = "30px Arial";
@@ -274,19 +260,13 @@ function render() {
         ctx.fillRect(0, 0, screenWidth, screenHeight);
         playerHitTimer--;
     }
-    // Update Ability HUD
     if (player.markCooldown <= 0) {
-        abilityHud.textContent = "Marker Ready (E)";
-        abilityHud.style.color = "#00FF00";
+        abilityHud.textContent = "Marker Ready (E)"; abilityHud.style.color = "#00FF00";
     } else if (player.markActiveTimer > 0) {
-        abilityHud.textContent = `Marker Active! ${(player.markActiveTimer / 60).toFixed(1)}s`;
-        abilityHud.style.color = "#FFFF00";
+        abilityHud.textContent = `Marker Active! ${(player.markActiveTimer / 60).toFixed(1)}s`; abilityHud.style.color = "#FFFF00";
     } else {
-        abilityHud.textContent = `Cooldown ${(player.markCooldown / 60).toFixed(1)}s`;
-        abilityHud.style.color = "#FF0000";
+        abilityHud.textContent = `Cooldown ${(player.markCooldown / 60).toFixed(1)}s`; abilityHud.style.color = "#FF0000";
     }
-
-    // --- Game Over Screen ---
     if (player.health <= 0) {
         document.exitPointerLock();
         document.getElementById('gameOverScreen').style.display = 'flex';
@@ -301,7 +281,7 @@ function gameLoop() {
 }
 
 botSprite.onload = () => { gameLoop(); };
-botSprite.onerror = () => { alert("Error: Could not load bot_sprite.png. Make sure the file is in your repository and the name is correct."); };
+botSprite.onerror = () => { gameLoop(); }; // Start the game even if the sprite fails, so we can see the fallback
 
 // --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -314,7 +294,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "8.0-final";
+const gameVersion = "8.1-fallback";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
