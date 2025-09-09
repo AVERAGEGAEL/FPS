@@ -34,11 +34,11 @@ const map = [
 const player = { x: 1.5, y: 1.5, dirX: 1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05 };
 const mouseSensitivity = 0.002;
 
-// --- Targets and Game State ---
-let targets = [
-    { x: 4.5, y: 4.5, health: 100 },
-    { x: 10.5, y: 2.5, health: 100 },
-    { x: 8.5, y: 12.5, health: 100 }
+// --- NEW: CPU Bots ---
+let bots = [
+    { x: 4.5, y: 4.5, health: 100, speed: 0.02 },
+    { x: 10.5, y: 2.5, health: 100, speed: 0.02 },
+    { x: 8.5, y: 12.5, health: 100, speed: 0.02 }
 ];
 let score = 0;
 const gunshotSound = new Audio('shot.wav');
@@ -58,19 +58,20 @@ canvas.addEventListener('click', () => {
     }
 });
 
+// UPDATED to shoot bots
 function shoot() {
     gunshotSound.currentTime = 0;
     gunshotSound.play();
-    targets.forEach(target => {
-        if (target.health > 0) {
-            const dist = Math.sqrt((player.x - target.x)**2 + (player.y - target.y)**2);
-            const targetVecX = (target.x - player.x) / dist;
-            const targetVecY = (target.y - player.y) / dist;
-            const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
-            if (dotProduct > 0.98 && dist < 10) {
-                target.health -= 25;
-                if (target.health <= 0) {
-                    target.health = 0;
+    bots.forEach(bot => {
+        if (bot.health > 0) {
+            const dist = Math.sqrt((player.x - bot.x)**2 + (player.y - bot.y)**2);
+            const vecX = (bot.x - player.x) / dist;
+            const vecY = (bot.y - player.y) / dist;
+            const dotProduct = player.dirX * vecX + player.dirY * vecY;
+            if (dotProduct > 0.98 && dist < 15) { // Check if bot is in front of player
+                bot.health -= 34; // 3-4 shots to kill
+                if (bot.health <= 0) {
+                    bot.health = 0;
                     score += 100;
                 }
             }
@@ -92,8 +93,8 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- Stable Movement Logic ---
-function updateGame() {
+// --- Player Movement Logic ---
+function updatePlayerMovement() {
     const moveSpeed = player.moveSpeed;
     let moveX = 0;
     let moveY = 0;
@@ -130,6 +131,38 @@ function updateGame() {
     if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) {
         player.y = nextY;
     }
+}
+
+// --- NEW: Bot AI and Movement ---
+function updateBots() {
+    bots.forEach(bot => {
+        if (bot.health > 0) {
+            const dist = Math.sqrt((player.x - bot.x)**2 + (player.y - bot.y)**2);
+            
+            // Check for line of sight
+            let hasLineOfSight = true;
+            const steps = Math.floor(dist * 2); // Check every half a grid square
+            for (let i = 0; i < steps; i++) {
+                const checkX = Math.floor(bot.x + (player.x - bot.x) * (i / steps));
+                const checkY = Math.floor(bot.y + (player.y - bot.y) * (i / steps));
+                if (map[checkY][checkX] === 1) {
+                    hasLineOfSight = false;
+                    break;
+                }
+            }
+
+            // If bot sees player and is not too close, it chases
+            if (hasLineOfSight && dist > 1) {
+                const moveX = ((player.x - bot.x) / dist) * bot.speed;
+                const moveY = ((player.y - bot.y) / dist) * bot.speed;
+                const nextX = bot.x + moveX;
+                const nextY = bot.y + moveY;
+                
+                if (map[Math.floor(bot.y)][Math.floor(nextX)] === 0) bot.x = nextX;
+                if (map[Math.floor(nextY)][Math.floor(bot.x)] === 0) bot.y = nextY;
+            }
+        }
+    });
 }
 
 
@@ -179,16 +212,15 @@ function render() {
         ctx.stroke();
     }
 
-    // Stable Sprite Rendering
-    targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
+    // --- NEW: Render Bots ---
+    // Sort bots from farthest to nearest
+    bots.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
 
-    targets.forEach(target => {
-        if (target.health > 0) {
-            const spriteX = target.x - player.x;
-            const spriteY = target.y - player.y;
-            
-            // --- *** FINAL FIX: Corrected mathematical formula for sprite transformation *** ---
-            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY); 
+    bots.forEach(bot => {
+        if (bot.health > 0) {
+            const spriteX = bot.x - player.x;
+            const spriteY = bot.y - player.y;
+            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
             const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
             const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
 
@@ -202,7 +234,7 @@ function render() {
 
                 for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
                     if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                        ctx.fillStyle = "red";
+                        ctx.fillStyle = "green"; // Bots are green
                         ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
                     }
                 }
@@ -218,7 +250,8 @@ function render() {
 
 // --- Main Game Loop ---
 function gameLoop() {
-    updateGame();
+    updatePlayerMovement();
+    updateBots();
     render();
     requestAnimationFrame(gameLoop);
 }
@@ -240,7 +273,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "5.1-final-final";
+const gameVersion = "6.0-bots";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
