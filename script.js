@@ -62,9 +62,7 @@ canvas.addEventListener('click', () => {
     if (player.health <= 0) return;
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    if (document.pointerLockElement === canvas) {
-        shoot();
-    }
+    if (document.pointerLockElement === canvas) { shoot(); }
 });
 
 function shoot() {
@@ -104,6 +102,7 @@ document.addEventListener('mousemove', updateRotation);
 // --- Game Logic Update ---
 function update() {
     if (player.health <= 0) return;
+
     // Player Movement
     const moveSpeed = player.moveSpeed;
     let moveX = 0, moveY = 0;
@@ -111,6 +110,7 @@ function update() {
     if (keys['s'] || keys['arrowdown']) { moveX -= player.dirX; moveY -= player.dirY; }
     if (keys['a'] || keys['arrowleft']) { moveX -= player.planeX; moveY -= player.planeY; }
     if (keys['d'] || keys['arrowright']) { moveX += player.planeX; moveY += player.planeY; }
+
     const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
     if (magnitude > 0) {
         moveX = (moveX / magnitude) * moveSpeed;
@@ -120,6 +120,7 @@ function update() {
     const nextY = player.y + moveY;
     if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
     if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+
     // Bot AI
     bots.forEach(bot => {
         if (bot.health > 0) {
@@ -150,6 +151,7 @@ function update() {
             }
         }
     });
+
     // Ability Cooldowns
     if (player.markCooldown > 0) player.markCooldown--;
     if (player.markActiveTimer > 0) player.markActiveTimer--;
@@ -218,27 +220,22 @@ function render() {
 
     botScreenPos.sort((a, b) => b.transformX - a.transformX);
     
-    // --- *** THE FINAL, SIMPLIFIED, AND WORKING SPRITE RENDERER *** ---
+    // --- FINAL FIX: Simplified and Robust Sprite Rendering ---
     botScreenPos.forEach(pos => {
-        const bot = pos.bot;
-        if (bot.health > 0 && pos.transformX > 0) {
+        if (pos.bot.health > 0 && pos.transformX > 0) {
             const spriteScreenX = Math.floor((screenWidth / 2) * (1 + pos.transformY / pos.transformX));
             const spriteHeight = Math.abs(Math.floor(screenHeight / pos.transformX));
             const spriteWidth = spriteHeight;
             const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
             const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
 
-            // Check if the center of the sprite is in front of a wall
+            // ULTIMATE FIX: Check if the sprite is even on screen before trying to check the zBuffer.
+            // This prevents the game from crashing when a bot is off-screen.
             const centerStripe = Math.floor(drawStartX + spriteWidth / 2);
             if (centerStripe >= 0 && centerStripe < screenWidth && pos.transformX < zBuffer[centerStripe]) {
                 if (botSprite.complete && botSprite.width > 0) {
-                    // Draw the whole image, not stripe-by-stripe
-                    ctx.drawImage(botSprite,
-                        0, 0, textureWidth, textureHeight,
-                        drawStartX, drawStartY, spriteWidth, spriteHeight
-                    );
+                    ctx.drawImage(botSprite, 0, 0, textureWidth, textureHeight, drawStartX, drawStartY, spriteWidth, spriteHeight);
                 } else {
-                    // Fallback purple box
                     ctx.fillStyle = "purple";
                     ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
                 }
@@ -276,10 +273,9 @@ function gameLoop() {
     requestAnimationFrame(gameLoop);
 }
 
-// Start the game loop only after the image has attempted to load
 botSprite.onload = () => { gameLoop(); };
 botSprite.onerror = () => {
-    alert("WARNING: Could not load bot_sprite.png. Bots will be purple. Check that the file is in your repository and named correctly.");
+    alert("WARNING: Could not load bot_sprite.png. Bots will be purple. Check filename and location.");
     gameLoop();
 };
 
@@ -294,7 +290,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "10.0-final";
+const gameVersion = "10.1-final";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
