@@ -105,7 +105,7 @@ document.addEventListener('mousemove', updateRotation);
 function update() {
     if (player.health <= 0) return;
 
-    // --- Player Movement ---
+    // Player Movement
     const moveSpeed = player.moveSpeed;
     let moveX = 0, moveY = 0;
     if (keys['w'] || keys['arrowup']) { moveX += player.dirX; moveY += player.dirY; }
@@ -123,7 +123,7 @@ function update() {
     if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
     if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
 
-    // --- Bot AI and Movement ---
+    // Bot AI
     bots.forEach(bot => {
         if (bot.health > 0) {
             const dist = Math.sqrt((player.x - bot.x)**2 + (player.y - bot.y)**2);
@@ -147,6 +147,7 @@ function update() {
                 const botNextY = bot.y + botMoveY;
                 if (map[Math.floor(bot.y)][Math.floor(botNextX)] === 0) bot.x = botNextX;
                 if (map[Math.floor(botNextY)][Math.floor(bot.x)] === 0) bot.y = botNextY;
+
                 if (bot.shootCooldown <= 0) {
                     player.health -= 10;
                     if(player.health < 0) player.health = 0;
@@ -157,12 +158,12 @@ function update() {
         }
     });
 
-    // --- Ability Cooldown Logic ---
+    // Ability Cooldowns
     if (player.markCooldown > 0) player.markCooldown--;
     if (player.markActiveTimer > 0) player.markActiveTimer--;
     if (keys['e'] && player.markCooldown <= 0) {
-        player.markCooldown = 600; // 10 seconds
-        player.markActiveTimer = 180; // 3 seconds
+        player.markCooldown = 600;
+        player.markActiveTimer = 180;
     }
 }
 
@@ -231,26 +232,25 @@ function render() {
             const spriteWidth = spriteHeight;
             const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
             const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-            
-            let isVisible = false;
-            for(let i = drawStartX; i < drawStartX + spriteWidth; i++) {
-                if (i >= 0 && i < screenWidth && pos.transformX < zBuffer[i]) {
-                    isVisible = true;
-                    break;
-                }
-            }
-            if (isVisible) {
-                // --- FINAL FIX: Draw sprite if loaded, otherwise draw a purple box ---
-                if (botSprite.width > 0) {
-                    ctx.drawImage(botSprite, 0, 0, textureWidth, textureHeight, drawStartX, drawStartY, spriteWidth, spriteHeight);
-                } else {
-                    ctx.fillStyle = "purple"; // Fallback color
-                    ctx.fillRect(drawStartX, drawStartY, spriteWidth, spriteHeight);
+
+            // --- FINAL FIX: Removed the broken "isVisible" check. ---
+            // Now we draw stripe by stripe, only if the stripe itself is in front of a wall.
+            for (let stripe = drawStartX; stripe < drawStartX + spriteWidth; stripe++) {
+                if (stripe >= 0 && stripe < screenWidth && pos.transformX < zBuffer[stripe]) {
+                    // This check runs for every vertical slice of the sprite
+                    const texX = Math.floor((stripe - drawStartX) * textureWidth / spriteWidth);
+                    if (botSprite.width > 0) {
+                        ctx.drawImage(botSprite, texX, 0, 1, textureHeight, stripe, drawStartY, 1, spriteHeight);
+                    } else {
+                        ctx.fillStyle = "purple"; // Fallback if image is STILL not loaded
+                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                    }
                 }
             }
         }
     });
 
+    // Render HUD
     ctx.fillStyle = "white"; ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
     ctx.fillStyle = "red"; ctx.font = "30px Arial";
@@ -281,7 +281,10 @@ function gameLoop() {
 }
 
 botSprite.onload = () => { gameLoop(); };
-botSprite.onerror = () => { gameLoop(); }; // Start the game even if the sprite fails, so we can see the fallback
+botSprite.onerror = () => {
+    alert("CRITICAL ERROR: Could not load bot_sprite.png. Bots will be purple. Please check filename and location.");
+    gameLoop();
+};
 
 // --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
@@ -294,7 +297,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "8.1-fallback";
+const gameVersion = "9.0-ultra-stable";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
