@@ -51,7 +51,22 @@ button:hover {
     border-radius: 4px;
 }
 
-/* NEW: Style for the Game Over screen */
+/* NEW: Styles for the ability cooldown HUD */
+#ability-hud {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    background-color: rgba(0, 0, 0, 0.5);
+    padding: 10px 20px;
+    border-radius: 10px;
+    border: 2px solid #555;
+    color: white;
+    font-family: monospace;
+    font-size: 18px;
+    text-shadow: 1px 1px 2px black;
+}
+
 #gameOverScreen {
     position: fixed;
     top: 0;
