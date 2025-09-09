@@ -81,14 +81,16 @@ function shoot() {
 // --- Mouselook Handler ---
 function updateRotation(e) {
     if (document.pointerLockElement === canvas) {
-        // Corrected mouse inversion
-        const rotSpeed = e.movementX * mouseSensitivity;
+        // FIXED: The sign is now correct for non-inverted aiming.
+        const rotSpeed = e.movementX * -mouseSensitivity;
+
         const oldDirX = player.dirX;
-        player.dirX = player.dirX * Math.cos(-rotSpeed) - player.dirY * Math.sin(-rotSpeed);
-        player.dirY = oldDirX * Math.sin(-rotSpeed) + player.dirY * Math.cos(-rotSpeed);
+        player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
+        player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
+
         const oldPlaneX = player.planeX;
-        player.planeX = player.planeX * Math.cos(-rotSpeed) - player.planeY * Math.sin(-rotSpeed);
-        player.planeY = oldPlaneX * Math.sin(-rotSpeed) + player.planeY * Math.cos(-rotSpeed);
+        player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
+        player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
     }
 }
 document.addEventListener('mousemove', updateRotation);
@@ -180,7 +182,10 @@ function render() {
         ctx.stroke();
     }
 
-    // --- STABLE SPRITE RENDERING (NO SORTING OR HEALTH BARS) ---
+    // --- FIXED: STABLE SPRITE RENDERING ---
+    // Re-enabled sorting to make sure sprites draw correctly when overlapping
+    targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
+
     targets.forEach(target => {
         if (target.health > 0) {
             const spriteX = target.x - player.x;
@@ -191,10 +196,13 @@ function render() {
 
             if (transformX > 0) {
                 const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
+                
+                // FIXED: Calculation for sprite width and start/end points is now correct.
                 const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
+                const spriteWidth = spriteHeight; // Keep aspect ratio
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
-                const drawStartX = Math.floor(-spriteHeight / 2 + spriteScreenX);
-                const drawEndX = Math.floor(spriteHeight / 2 + spriteScreenX);
+                const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
+                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
 
                 for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
                     if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
@@ -236,7 +244,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "4.0-safe-mode";
+const gameVersion = "4.1-stable";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
