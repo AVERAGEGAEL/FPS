@@ -30,15 +30,22 @@ const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
 ];
 
-// --- Player ---
-const player = { x: 1.5, y: 1.5, dirX: 1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05 };
-const mouseSensitivity = 0.002;
+// --- Assets ---
+const botSprite = new Image();
+botSprite.src = 'bot_sprite.png'; // Make sure you upload this file to GitHub!
+const textureWidth = 64;  // Width of a single sprite frame
+const textureHeight = 64; // Height of a single sprite frame
 
-// --- NEW: CPU Bots ---
+// --- Player ---
+const player = { x: 1.5, y: 1.5, dirX: 1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05, health: 100 };
+const mouseSensitivity = 0.002;
+let playerHitTimer = 0; // For damage flash effect
+
+// --- CPU Bots ---
 let bots = [
-    { x: 4.5, y: 4.5, health: 100, speed: 0.02 },
-    { x: 10.5, y: 2.5, health: 100, speed: 0.02 },
-    { x: 8.5, y: 12.5, health: 100, speed: 0.02 }
+    { x: 4.5, y: 4.5, health: 100, speed: 0.02, shootCooldown: 120, texture: {x: 0, y: 0} },
+    { x: 10.5, y: 2.5, health: 100, speed: 0.02, shootCooldown: 120, texture: {x: 0, y: 0} },
+    { x: 8.5, y: 12.5, health: 100, speed: 0.02, shootCooldown: 120, texture: {x: 0, y: 0} }
 ];
 let score = 0;
 const gunshotSound = new Audio('shot.wav');
@@ -51,6 +58,9 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 
 // --- MOUSE AND SHOOTING INPUT ---
 canvas.addEventListener('click', () => {
+    if (player.health <= 0) { // Allow restarting the game on click
+        document.location.reload();
+    }
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
     if (document.pointerLockElement === canvas) {
@@ -58,7 +68,6 @@ canvas.addEventListener('click', () => {
     }
 });
 
-// UPDATED to shoot bots
 function shoot() {
     gunshotSound.currentTime = 0;
     gunshotSound.play();
@@ -68,8 +77,8 @@ function shoot() {
             const vecX = (bot.x - player.x) / dist;
             const vecY = (bot.y - player.y) / dist;
             const dotProduct = player.dirX * vecX + player.dirY * vecY;
-            if (dotProduct > 0.98 && dist < 15) { // Check if bot is in front of player
-                bot.health -= 34; // 3-4 shots to kill
+            if (dotProduct > 0.98 && dist < 15) {
+                bot.health -= 34;
                 if (bot.health <= 0) {
                     bot.health = 0;
                     score += 100;
@@ -99,22 +108,10 @@ function updatePlayerMovement() {
     let moveX = 0;
     let moveY = 0;
 
-    if (keys['w'] || keys['arrowup']) {
-        moveX += player.dirX;
-        moveY += player.dirY;
-    }
-    if (keys['s'] || keys['arrowdown']) {
-        moveX -= player.dirX;
-        moveY -= player.dirY;
-    }
-    if (keys['a'] || keys['arrowleft']) {
-        moveX -= player.planeX;
-        moveY -= player.planeY;
-    }
-    if (keys['d'] || keys['arrowright']) {
-        moveX += player.planeX;
-        moveY += player.planeY;
-    }
+    if (keys['w'] || keys['arrowup']) { moveX += player.dirX; moveY += player.dirY; }
+    if (keys['s'] || keys['arrowdown']) { moveX -= player.dirX; moveY -= player.dirY; }
+    if (keys['a'] || keys['arrowleft']) { moveX -= player.planeX; moveY -= player.planeY; }
+    if (keys['d'] || keys['arrowright']) { moveX += player.planeX; moveY += player.planeY; }
 
     const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
     if (magnitude > 0) {
@@ -125,33 +122,32 @@ function updatePlayerMovement() {
     const nextX = player.x + moveX;
     const nextY = player.y + moveY;
     
-    if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) {
-        player.x = nextX;
-    }
-    if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) {
-        player.y = nextY;
-    }
+    if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+    if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
 }
 
-// --- NEW: Bot AI and Movement ---
+// --- Bot AI and Movement ---
 function updateBots() {
     bots.forEach(bot => {
         if (bot.health > 0) {
             const dist = Math.sqrt((player.x - bot.x)**2 + (player.y - bot.y)**2);
-            
+            bot.shootCooldown--;
+
             // Check for line of sight
             let hasLineOfSight = true;
-            const steps = Math.floor(dist * 2); // Check every half a grid square
-            for (let i = 0; i < steps; i++) {
-                const checkX = Math.floor(bot.x + (player.x - bot.x) * (i / steps));
-                const checkY = Math.floor(bot.y + (player.y - bot.y) * (i / steps));
-                if (map[checkY][checkX] === 1) {
-                    hasLineOfSight = false;
-                    break;
+            const steps = Math.floor(dist * 4);
+            if (steps > 0) {
+                for (let i = 0; i < steps; i++) {
+                    const checkX = Math.floor(bot.x + (player.x - bot.x) * (i / steps));
+                    const checkY = Math.floor(bot.y + (player.y - bot.y) * (i / steps));
+                    if (map[checkY][checkX] === 1) {
+                        hasLineOfSight = false;
+                        break;
+                    }
                 }
             }
 
-            // If bot sees player and is not too close, it chases
+            // If bot sees player, it chases and shoots
             if (hasLineOfSight && dist > 1) {
                 const moveX = ((player.x - bot.x) / dist) * bot.speed;
                 const moveY = ((player.y - bot.y) / dist) * bot.speed;
@@ -160,11 +156,24 @@ function updateBots() {
                 
                 if (map[Math.floor(bot.y)][Math.floor(nextX)] === 0) bot.x = nextX;
                 if (map[Math.floor(nextY)][Math.floor(bot.x)] === 0) bot.y = nextY;
+
+                // BOT SHOOTING LOGIC
+                if (bot.shootCooldown <= 0) {
+                    player.health -= 10;
+                    playerHitTimer = 10; // Trigger damage flash
+                    bot.shootCooldown = 120 + Math.random() * 60; // Reset cooldown (2-3 seconds)
+                }
             }
         }
     });
 }
 
+// --- Main Game Update Function ---
+function update() {
+    if (player.health <= 0) return; // Stop updates if player is dead
+    updatePlayerMovement();
+    updateBots();
+}
 
 function render() {
     // Draw sky and floor
@@ -191,9 +200,7 @@ function render() {
 
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) {
-                hit = 1;
-            }
+            if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) hit = 1;
         }
 
         const perpWallDist = (side === 0) ? (mapX - player.x + (1 - stepX) / 2) / rayDirX : (mapY - player.y + (1 - stepY) / 2) / rayDirY;
@@ -212,10 +219,8 @@ function render() {
         ctx.stroke();
     }
 
-    // --- NEW: Render Bots ---
-    // Sort bots from farthest to nearest
+    // --- RENDER BOTS (SPRITES) ---
     bots.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
-
     bots.forEach(bot => {
         if (bot.health > 0) {
             const spriteX = bot.x - player.x;
@@ -230,28 +235,47 @@ function render() {
                 const spriteWidth = spriteHeight;
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
-                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
-
-                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+                
+                for (let stripe = drawStartX; stripe < drawStartX + spriteWidth; stripe++) {
+                    const texX = Math.floor((stripe - drawStartX) * textureWidth / spriteWidth);
                     if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
-                        ctx.fillStyle = "green"; // Bots are green
-                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                        ctx.drawImage(botSprite, 
+                            bot.texture.x + texX, bot.texture.y, 1, textureHeight,
+                            stripe, drawStartY, 1, spriteHeight
+                        );
                     }
                 }
             }
         }
     });
 
-    // Render HUD
+    // --- Render HUD ---
     ctx.fillStyle = "white";
     ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
+    // Player Health
+    ctx.fillStyle = "red";
+    ctx.font = "30px Arial";
+    ctx.fillText(`❤️ ${player.health}`, 10, screenHeight - 20);
+
+    // Damage Flash
+    if (playerHitTimer > 0) {
+        ctx.fillStyle = `rgba(255, 0, 0, ${0.05 * playerHitTimer})`;
+        ctx.fillRect(0, 0, screenWidth, screenHeight);
+        playerHitTimer--;
+    }
+
+    // Game Over Screen
+    if (player.health <= 0) {
+        document.exitPointerLock();
+        const gameOverScreen = document.getElementById('gameOverScreen');
+        gameOverScreen.style.display = 'flex'; // Make it visible
+    }
 }
 
 // --- Main Game Loop ---
 function gameLoop() {
-    updatePlayerMovement();
-    updateBots();
+    update();
     render();
     requestAnimationFrame(gameLoop);
 }
@@ -261,19 +285,25 @@ gameLoop();
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 fullscreenBtn.addEventListener('click', () => {
     const elem = document.body; 
-    if (elem.requestFullscreen) {
-        elem.requestFullscreen();
-    } else if (elem.mozRequestFullScreen) {
-        elem.mozRequestFullScreen();
-    } else if (elem.webkitRequestFullscreen) {
-        elem.webkitRequestFullscreen();
-    } else if (elem.msRequestFullscreen) {
-        elem.msRequestFullscreen();
-    }
+    if (elem.requestFullscreen) elem.requestFullscreen();
+    else if (elem.mozRequestFullScreen) elem.mozRequestFullScreen();
+    else if (elem.webkitRequestFullscreen) elem.webkitRequestFullscreen();
+    else if (elem.msRequestFullscreen) elem.msRequestFullscreen();
 });
 
 // --- Version Display ---
-const gameVersion = "6.0-bots";
+const gameVersion = "7.0-action";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
+
+// --- Add Game Over HTML dynamically ---
+const gameOverScreen = document.createElement('div');
+gameOverScreen.id = 'gameOverScreen';
+gameOverScreen.innerHTML = `
+    <div>
+        <h1>YOU DIED</h1>
+        <p style="font-size: 24px;">Click to Restart</p>
+    </div>
+`;
+document.body.appendChild(gameOverScreen);
