@@ -31,7 +31,8 @@ const map = [
 ];
 
 // --- Player ---
-const player = { x: 2.5, y: 2.5, dirX: -1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05 };
+// FIXED: Player starting position moved to an open space (1.5, 1.5)
+const player = { x: 1.5, y: 1.5, dirX: 1.0, dirY: 0.0, planeX: 0.0, planeY: 0.66, moveSpeed: 0.05 };
 const mouseSensitivity = 0.002;
 
 // --- Targets and Game State ---
@@ -44,30 +45,36 @@ let score = 0;
 const gunshotSound = new Audio('shot.wav');
 gunshotSound.volume = 0.3;
 
-// --- DEBUGGER VARIABLES ---
-let debugInfo = {
-    keyPressed: "None",
-    playerPos: "",
-    isMoving: false,
-    targetTileValue: null
-};
-
 // --- Controls ---
 const keys = {};
-document.addEventListener('keydown', (e) => {
-    keys[e.key.toLowerCase()] = true;
-    debugInfo.keyPressed = e.key.toLowerCase(); // Update debugger
-});
-document.addEventListener('keyup', (e) => {
-    keys[e.key.toLowerCase()] = false;
-    debugInfo.keyPressed = "None"; // Update debugger
-});
+document.addEventListener('keydown', (e) => { keys[e.key.toLowerCase()] = true; });
+document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; });
 
 // --- MOUSE AND SHOOTING INPUT ---
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
+    if(document.pointerLockElement === canvas) {
+        shoot();
+    }
 });
+
+function shoot() {
+    gunshotSound.currentTime = 0;
+    gunshotSound.play();
+    targets.forEach(target => {
+        if (target.health > 0) {
+            const dist = Math.sqrt((player.x - target.x)**2 + (player.y - target.y)**2);
+            const targetVecX = (target.x - player.x) / dist;
+            const targetVecY = (target.y - player.y) / dist;
+            const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
+            if (dotProduct > 0.98 && dist < 10) {
+                target.health -= 25;
+                if (target.health <= 0) score += 100;
+            }
+        }
+    });
+}
 
 // --- Mouselook Handler ---
 function updateRotation(e) {
@@ -83,60 +90,48 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- *** STABLE MOVEMENT LOGIC WITH DEBUGGING *** ---
+// --- Stable and Corrected Movement Logic ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
+    
+    // Create a new vector for movement
     let moveX = 0;
     let moveY = 0;
 
-    // Reset debug flag
-    debugInfo.isMoving = false;
-
-    // GATHER INPUTS
+    // Calculate movement based on key presses
     if (keys['w'] || keys['arrowup']) {
         moveX += player.dirX;
         moveY += player.dirY;
-        debugInfo.isMoving = true;
     }
     if (keys['s'] || keys['arrowdown']) {
         moveX -= player.dirX;
         moveY -= player.dirY;
-        debugInfo.isMoving = true;
     }
-    if (keys['a']) {
+    // FIXED: Added arrow keys for strafing
+    if (keys['a'] || keys['arrowleft']) {
         moveX -= player.planeX;
         moveY -= player.planeY;
-        debugInfo.isMoving = true;
     }
-    if (keys['d']) {
+    if (keys['d'] || keys['arrowright']) {
         moveX += player.planeX;
         moveY += player.planeY;
-        debugInfo.isMoving = true;
     }
 
-    // NORMALIZE MOVEMENT VECTOR
+    // Normalize the movement vector to prevent faster diagonal speed
     const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
     if (magnitude > 0) {
         moveX = (moveX / magnitude) * moveSpeed;
         moveY = (moveY / magnitude) * moveSpeed;
     }
-
-    // SIMPLE COLLISION CHECK
+    
+    // Perform collision detection and movement (wall sliding)
     const nextX = player.x + moveX;
     const nextY = player.y + moveY;
-    const nextMapX = Math.floor(nextX);
-    const nextMapY = Math.floor(nextY);
     
-    // Update debugger with what it's about to check
-    if (nextMapY >= 0 && nextMapY < mapHeight && nextMapX >= 0 && nextMapX < mapWidth) {
-        debugInfo.targetTileValue = `Tile (${nextMapX},${nextMapY}) is ${map[nextMapY][nextMapX]}`;
-    } else {
-        debugInfo.targetTileValue = "OUT OF BOUNDS";
-    }
-
-    // If the destination tile is NOT a wall (is 0), then allow the move.
-    if (map[nextMapY] !== undefined && map[nextMapY][nextMapX] === 0) {
+    if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) {
         player.x = nextX;
+    }
+    if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) {
         player.y = nextY;
     }
 }
@@ -187,21 +182,37 @@ function render() {
         ctx.lineTo(x, drawEnd);
         ctx.stroke();
     }
-    
-    // --- *** NEW DEBUGGER DISPLAY *** ---
-    // This draws the debug info on top of the game screen.
-    debugInfo.playerPos = `Pos: (${player.x.toFixed(2)}, ${player.y.toFixed(2)})`;
-    
-    ctx.fillStyle = "rgba(0, 0, 0, 0.5)";
-    ctx.fillRect(5, 5, 250, 80);
-    
+
+    // Render targets (sprites)
+    targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
+    targets.forEach(target => {
+        if (target.health > 0) {
+            const spriteX = target.x - player.x;
+            const spriteY = target.y - player.y;
+            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+            const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
+            const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
+            if (transformX > 0) {
+                const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
+                const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
+                const spriteWidth = spriteHeight;
+                const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
+                const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
+                const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
+                for (let stripe = drawStartX; stripe < drawEndX; stripe++) {
+                    if (stripe >= 0 && stripe < screenWidth && transformX < zBuffer[stripe]) {
+                        ctx.fillStyle = "red";
+                        ctx.fillRect(stripe, drawStartY, 1, spriteHeight);
+                    }
+                }
+            }
+        }
+    });
+
+    // Render HUD
     ctx.fillStyle = "white";
-    ctx.font = "14px monospace";
-    ctx.fillText("--- DEBUGGER ---", 10, 20);
-    ctx.fillText(`Key Pressed: ${debugInfo.keyPressed}`, 10, 35);
-    ctx.fillText(debugInfo.playerPos, 10, 50);
-    ctx.fillText(`Attempting Move: ${debugInfo.isMoving}`, 10, 65);
-    ctx.fillText(debugInfo.targetTileValue, 10, 80);
+    ctx.font = "24px Arial";
+    ctx.fillText("Score: " + score, 10, 30);
 }
 
 // --- Main Game Loop ---
@@ -226,3 +237,9 @@ fullscreenBtn.addEventListener('click', () => {
         elem.msRequestFullscreen();
     }
 });
+
+// --- Version Display ---
+const gameVersion = "3.0-working";
+const updateTimestamp = new Date().toLocaleDateString();
+const versionDisplay = document.getElementById('version-info');
+versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
