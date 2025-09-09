@@ -54,7 +54,7 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    if(document.pointerLockElement === canvas) {
+    if (document.pointerLockElement === canvas) {
         shoot();
     }
 });
@@ -90,36 +90,51 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- Stable and Corrected Movement Logic ---
+// --- *** NEW, REBUILT, AND STABLE MOVEMENT LOGIC *** ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
+    let inputDirX = 0;
+    let inputDirY = 0;
 
-    // Forward and backward movement
+    // 1. GATHER ALL INPUTS INTO A SINGLE DIRECTION VECTOR
     if (keys['w'] || keys['arrowup']) {
-        const nextX = player.x + player.dirX * moveSpeed;
-        const nextY = player.y + player.dirY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        inputDirX += player.dirX;
+        inputDirY += player.dirY;
     }
     if (keys['s'] || keys['arrowdown']) {
-        const nextX = player.x - player.dirX * moveSpeed;
-        const nextY = player.y - player.dirY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        inputDirX -= player.dirX;
+        inputDirY -= player.dirY;
     }
-
-    // Strafing (side-to-side) movement
     if (keys['a']) {
-        const nextX = player.x - player.planeX * moveSpeed;
-        const nextY = player.y - player.planeY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        inputDirX -= player.planeX;
+        inputDirY -= player.planeY;
     }
     if (keys['d']) {
-        const nextX = player.x + player.planeX * moveSpeed;
-        const nextY = player.y + player.planeY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        inputDirX += player.planeX;
+        inputDirY += player.planeY;
+    }
+
+    // 2. CALCULATE THE FINAL MOVEMENT STEP
+    let moveX = 0;
+    let moveY = 0;
+    const magnitude = Math.sqrt(inputDirX * inputDirX + inputDirY * inputDirY);
+    if (magnitude > 0) {
+        // Normalize the vector and apply speed to prevent faster diagonal movement
+        moveX = (inputDirX / magnitude) * moveSpeed;
+        moveY = (inputDirY / magnitude) * moveSpeed;
+    }
+
+    // 3. PERFORM A SINGLE, CLEAN COLLISION CHECK
+    const nextX = player.x + moveX;
+    const nextY = player.y + moveY;
+    
+    // Check X-axis collision (wall sliding)
+    if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) {
+        player.x = nextX;
+    }
+    // Check Y-axis collision (wall sliding)
+    if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) {
+        player.y = nextY;
     }
 }
 
@@ -226,7 +241,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "1.4-final";
-const updateTimestamp = "9/9/2025, 9:04 AM PDT";
+const gameVersion = "2.0-rebuilt";
+const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
