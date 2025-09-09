@@ -42,7 +42,7 @@ let targets = [
     { x: 8.5, y: 12.5, health: 100 }
 ];
 let score = 0;
-const gunshotSound = new Audio('shot.wav'); // Make sure you have this file in your repo
+const gunshotSound = new Audio('shot.wav');
 gunshotSound.volume = 0.3;
 
 // --- Controls ---
@@ -54,7 +54,7 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    if(document.pointerLockElement === canvas) {
+    if (document.pointerLockElement === canvas) {
         shoot();
     }
 });
@@ -68,7 +68,7 @@ function shoot() {
             const targetVecX = (target.x - player.x) / dist;
             const targetVecY = (target.y - player.y) / dist;
             const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
-            if (dotProduct > 0.98 && dist < 10) { // Check if target is in front of player
+            if (dotProduct > 0.98 && dist < 10) {
                 target.health -= 25;
                 if (target.health <= 0) score += 100;
             }
@@ -90,36 +90,49 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- Stable Movement Logic ---
+// --- *** STABLE AND CORRECTED MOVEMENT LOGIC *** ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
+    
+    // Create a new vector for movement
+    let moveX = 0;
+    let moveY = 0;
 
-    // Forward and backward movement
+    // Calculate movement based on key presses
     if (keys['w'] || keys['arrowup']) {
-        const nextX = player.x + player.dirX * moveSpeed;
-        const nextY = player.y + player.dirY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        moveX += player.dirX;
+        moveY += player.dirY;
     }
     if (keys['s'] || keys['arrowdown']) {
-        const nextX = player.x - player.dirX * moveSpeed;
-        const nextY = player.y - player.dirY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        moveX -= player.dirX;
+        moveY -= player.dirY;
     }
-
-    // Strafing (side-to-side) movement
     if (keys['a']) {
-        const nextX = player.x - player.planeX * moveSpeed;
-        const nextY = player.y - player.planeY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        moveX -= player.planeX;
+        moveY -= player.planeY;
     }
     if (keys['d']) {
-        const nextX = player.x + player.planeX * moveSpeed;
-        const nextY = player.y + player.planeY * moveSpeed;
-        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
-        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
+        moveX += player.planeX;
+        moveY += player.planeY;
+    }
+
+    // Normalize the movement vector to prevent faster diagonal speed
+    const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+    if (magnitude > 0) {
+        moveX = (moveX / magnitude) * moveSpeed;
+        moveY = (moveY / magnitude) * moveSpeed;
+    }
+    
+    // Calculate the new position
+    const newPosX = player.x + moveX;
+    const newPosY = player.y + moveY;
+    
+    // Check for collisions and apply movement (wall sliding)
+    if (map[Math.floor(player.y)][Math.floor(newPosX)] === 0) {
+        player.x = newPosX;
+    }
+    if (map[Math.floor(newPosY)][Math.floor(player.x)] === 0) {
+        player.y = newPosY;
     }
 }
 
@@ -225,8 +238,8 @@ fullscreenBtn.addEventListener('click', () => {
     }
 });
 
-// --- NEW: Version Display ---
-const gameVersion = "1.2";
-const updateTimestamp = "9/9/2025, 8:42 AM PDT";
+// --- Version Display ---
+const gameVersion = "1.3-stable";
+const updateTimestamp = "9/9/2025, 8:50 AM PDT";
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
