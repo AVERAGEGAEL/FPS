@@ -54,7 +54,7 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    if (document.pointerLockElement === canvas) {
+    if(document.pointerLockElement === canvas) {
         shoot();
     }
 });
@@ -90,49 +90,36 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- *** STABLE AND CORRECTED MOVEMENT LOGIC *** ---
+// --- Stable and Corrected Movement Logic ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
-    
-    // Create a new vector for movement
-    let moveX = 0;
-    let moveY = 0;
 
-    // Calculate movement based on key presses
+    // Forward and backward movement
     if (keys['w'] || keys['arrowup']) {
-        moveX += player.dirX;
-        moveY += player.dirY;
+        const nextX = player.x + player.dirX * moveSpeed;
+        const nextY = player.y + player.dirY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
     if (keys['s'] || keys['arrowdown']) {
-        moveX -= player.dirX;
-        moveY -= player.dirY;
-    }
-    if (keys['a']) {
-        moveX -= player.planeX;
-        moveY -= player.planeY;
-    }
-    if (keys['d']) {
-        moveX += player.planeX;
-        moveY += player.planeY;
+        const nextX = player.x - player.dirX * moveSpeed;
+        const nextY = player.y - player.dirY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
 
-    // Normalize the movement vector to prevent faster diagonal speed
-    const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
-    if (magnitude > 0) {
-        moveX = (moveX / magnitude) * moveSpeed;
-        moveY = (moveY / magnitude) * moveSpeed;
+    // Strafing (side-to-side) movement
+    if (keys['a']) {
+        const nextX = player.x - player.planeX * moveSpeed;
+        const nextY = player.y - player.planeY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
-    
-    // Calculate the new position
-    const newPosX = player.x + moveX;
-    const newPosY = player.y + moveY;
-    
-    // Check for collisions and apply movement (wall sliding)
-    if (map[Math.floor(player.y)][Math.floor(newPosX)] === 0) {
-        player.x = newPosX;
-    }
-    if (map[Math.floor(newPosY)][Math.floor(player.x)] === 0) {
-        player.y = newPosY;
+    if (keys['d']) {
+        const nextX = player.x + player.planeX * moveSpeed;
+        const nextY = player.y + player.planeY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
 }
 
@@ -239,7 +226,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "1.3-stable";
-const updateTimestamp = "9/9/2025, 8:50 AM PDT";
+const gameVersion = "1.4-final";
+const updateTimestamp = "9/9/2025, 9:04 AM PDT";
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
