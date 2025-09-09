@@ -52,9 +52,10 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 
 // --- MOUSE AND SHOOTING INPUT ---
 canvas.addEventListener('click', () => {
+    // This LOCKS THE MOUSE for aiming, it doesn't enter fullscreen.
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    if (document.pointerLockElement === canvas) {
+    if(document.pointerLockElement === canvas) {
         shoot();
     }
 });
@@ -90,50 +91,46 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- *** NEW, REBUILT, AND STABLE MOVEMENT LOGIC *** ---
+// --- *** RADICALLY SIMPLIFIED AND CORRECTED MOVEMENT LOGIC *** ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
-    let inputDirX = 0;
-    let inputDirY = 0;
-
-    // 1. GATHER ALL INPUTS INTO A SINGLE DIRECTION VECTOR
-    if (keys['w'] || keys['arrowup']) {
-        inputDirX += player.dirX;
-        inputDirY += player.dirY;
-    }
-    if (keys['s'] || keys['arrowdown']) {
-        inputDirX -= player.dirX;
-        inputDirY -= player.dirY;
-    }
-    if (keys['a']) {
-        inputDirX -= player.planeX;
-        inputDirY -= player.planeY;
-    }
-    if (keys['d']) {
-        inputDirX += player.planeX;
-        inputDirY += player.planeY;
-    }
-
-    // 2. CALCULATE THE FINAL MOVEMENT STEP
     let moveX = 0;
     let moveY = 0;
-    const magnitude = Math.sqrt(inputDirX * inputDirX + inputDirY * inputDirY);
-    if (magnitude > 0) {
-        // Normalize the vector and apply speed to prevent faster diagonal movement
-        moveX = (inputDirX / magnitude) * moveSpeed;
-        moveY = (inputDirY / magnitude) * moveSpeed;
+
+    // 1. GATHER INPUTS
+    if (keys['w'] || keys['arrowup']) {
+        moveX += player.dirX;
+        moveY += player.dirY;
+    }
+    if (keys['s'] || keys['arrowdown']) {
+        moveX -= player.dirX;
+        moveY -= player.dirY;
+    }
+    if (keys['a']) {
+        moveX -= player.planeX;
+        moveY -= player.planeY;
+    }
+    if (keys['d']) {
+        moveX += player.planeX;
+        moveY += player.planeY;
     }
 
-    // 3. PERFORM A SINGLE, CLEAN COLLISION CHECK
+    // 2. NORMALIZE MOVEMENT VECTOR
+    const magnitude = Math.sqrt(moveX * moveX + moveY * moveY);
+    if (magnitude > 0) {
+        moveX = (moveX / magnitude) * moveSpeed;
+        moveY = (moveY / magnitude) * moveSpeed;
+    }
+
+    // 3. SIMPLE COLLISION CHECK
     const nextX = player.x + moveX;
     const nextY = player.y + moveY;
-    
-    // Check X-axis collision (wall sliding)
-    if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) {
+    const nextMapX = Math.floor(nextX);
+    const nextMapY = Math.floor(nextY);
+
+    // If the destination tile is NOT a wall (is 0), then allow the move.
+    if (map[nextMapY][nextMapX] === 0) {
         player.x = nextX;
-    }
-    // Check Y-axis collision (wall sliding)
-    if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) {
         player.y = nextY;
     }
 }
@@ -241,7 +238,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "2.0-rebuilt";
+const gameVersion = "2.1-simple";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
