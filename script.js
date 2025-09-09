@@ -54,6 +54,7 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
+    // Shooting now only happens when the pointer is locked.
     if(document.pointerLockElement === canvas) {
         shoot();
     }
@@ -90,60 +91,57 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- ***DEFINITIVELY FIXED MOVEMENT LOGIC*** ---
+// --- *** COMPLETELY REWRITTEN AND FIXED MOVEMENT LOGIC *** ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
-    
-    // Forward/Backward Movement
+    let dx = 0;
+    let dy = 0;
+
+    // 1. Calculate the total desired movement vector based on keys
     if (keys['w'] || keys['arrowup']) {
-        const newX = player.x + player.dirX * moveSpeed;
-        const newY = player.y + player.dirY * moveSpeed;
-        // Check X-coord with boundary check
-        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
-            player.x = newX;
-        }
-        // Check Y-coord with boundary check
-        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
-            player.y = newY;
-        }
+        dx += player.dirX;
+        dy += player.dirY;
     }
     if (keys['s'] || keys['arrowdown']) {
-        const newX = player.x - player.dirX * moveSpeed;
-        const newY = player.y - player.dirY * moveSpeed;
-        // Check X-coord with boundary check
-        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
-            player.x = newX;
-        }
-        // Check Y-coord with boundary check
-        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
-            player.y = newY;
-        }
+        dx -= player.dirX;
+        dy -= player.dirY;
     }
-    
-    // Strafing Movement
     if (keys['a']) {
-        const newX = player.x - player.planeX * moveSpeed;
-        const newY = player.y - player.planeY * moveSpeed;
-        // Check X-coord with boundary check
-        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
-            player.x = newX;
-        }
-        // Check Y-coord with boundary check
-        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
-            player.y = newY;
-        }
+        dx -= player.planeX;
+        dy -= player.planeY;
     }
     if (keys['d']) {
-        const newX = player.x + player.planeX * moveSpeed;
-        const newY = player.y + player.planeY * moveSpeed;
-        // Check X-coord with boundary check
-        if (newX > 0 && newX < mapWidth && map[Math.floor(player.y)][Math.floor(newX)] === 0) {
-            player.x = newX;
-        }
-        // Check Y-coord with boundary check
-        if (newY > 0 && newY < mapHeight && map[Math.floor(newY)][Math.floor(player.x)] === 0) {
-            player.y = newY;
-        }
+        dx += player.planeX;
+        dy += player.planeY;
+    }
+    
+    // 2. Normalize the vector to prevent faster diagonal movement
+    const len = Math.sqrt(dx * dx + dy * dy);
+    if (len > 0) {
+        dx = (dx / len) * moveSpeed;
+        dy = (dy / len) * moveSpeed;
+    }
+
+    // 3. Apply collision detection and move
+    const newPosX = player.x + dx;
+    const newPosY = player.y + dy;
+    const currentMapX = Math.floor(player.x);
+    const currentMapY = Math.floor(player.y);
+    const nextMapX = Math.floor(newPosX);
+    const nextMapY = Math.floor(newPosY);
+
+    // Check only the destination cell. This is a simpler but effective collision method.
+    if (map[nextMapY][nextMapX] === 0) {
+        player.x = newPosX;
+        player.y = newPosY;
+    } 
+    // Allow sliding on the X-axis
+    else if (map[currentMapY][nextMapX] === 0) {
+        player.x = newPosX;
+    } 
+    // Allow sliding on the Y-axis
+    else if (map[nextMapY][currentMapX] === 0) {
+        player.y = newPosY;
     }
 }
 
@@ -171,7 +169,6 @@ function render() {
 
         while (hit === 0) {
             if (sideDistX < sideDistY) { sideDistX += deltaDistX; mapX += stepX; side = 0; } else { sideDistY += deltaDistY; mapY += stepY; side = 1; }
-            // Added boundary check here as well for safety
             if (mapY < 0 || mapY >= mapHeight || mapX < 0 || mapX >= mapWidth || map[mapY][mapX] > 0) {
                 hit = 1;
             }
