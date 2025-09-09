@@ -11,7 +11,7 @@ canvas.height = screenHeight;
 // --- Map ---
 const mapHeight = 16;
 const mapWidth = 16;
-// Defined as map[y][x]
+// Defined as map[y][x] for correct access
 const map = [
     [1,1,1,1,1,1,1,1,1,1,1,1,1,1,1,1],
     [1,0,0,0,0,0,0,0,0,0,0,0,0,0,0,1],
@@ -42,8 +42,8 @@ let targets = [
     { x: 8.5, y: 12.5, health: 100 }
 ];
 let score = 0;
-const gunshotSound = new Audio('shot.wav');
-gunshotSound.volume = 0.5;
+const gunshotSound = new Audio('shot.wav'); // Make sure you have this file in your repo
+gunshotSound.volume = 0.3;
 
 // --- Controls ---
 const keys = {};
@@ -54,7 +54,6 @@ document.addEventListener('keyup', (e) => { keys[e.key.toLowerCase()] = false; }
 canvas.addEventListener('click', () => {
     canvas.requestPointerLock = canvas.requestPointerLock || canvas.mozRequestPointerLock;
     canvas.requestPointerLock();
-    // Shooting now only happens when the pointer is locked.
     if(document.pointerLockElement === canvas) {
         shoot();
     }
@@ -69,7 +68,7 @@ function shoot() {
             const targetVecX = (target.x - player.x) / dist;
             const targetVecY = (target.y - player.y) / dist;
             const dotProduct = player.dirX * targetVecX + player.dirY * targetVecY;
-            if (dotProduct > 0.98 && dist < 10) {
+            if (dotProduct > 0.98 && dist < 10) { // Check if target is in front of player
                 target.health -= 25;
                 if (target.health <= 0) score += 100;
             }
@@ -91,62 +90,42 @@ function updateRotation(e) {
 }
 document.addEventListener('mousemove', updateRotation);
 
-// --- *** COMPLETELY REWRITTEN AND FIXED MOVEMENT LOGIC *** ---
+// --- *** STABLE AND CORRECTED MOVEMENT LOGIC *** ---
 function updateGame() {
     const moveSpeed = player.moveSpeed;
-    let dx = 0;
-    let dy = 0;
 
-    // 1. Calculate the total desired movement vector based on keys
+    // Forward and backward movement
     if (keys['w'] || keys['arrowup']) {
-        dx += player.dirX;
-        dy += player.dirY;
+        const nextX = player.x + player.dirX * moveSpeed;
+        const nextY = player.y + player.dirY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
     if (keys['s'] || keys['arrowdown']) {
-        dx -= player.dirX;
-        dy -= player.dirY;
+        const nextX = player.x - player.dirX * moveSpeed;
+        const nextY = player.y - player.dirY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
+
+    // Strafing (side-to-side) movement
     if (keys['a']) {
-        dx -= player.planeX;
-        dy -= player.planeY;
+        const nextX = player.x - player.planeX * moveSpeed;
+        const nextY = player.y - player.planeY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
     if (keys['d']) {
-        dx += player.planeX;
-        dy += player.planeY;
-    }
-    
-    // 2. Normalize the vector to prevent faster diagonal movement
-    const len = Math.sqrt(dx * dx + dy * dy);
-    if (len > 0) {
-        dx = (dx / len) * moveSpeed;
-        dy = (dy / len) * moveSpeed;
-    }
-
-    // 3. Apply collision detection and move
-    const newPosX = player.x + dx;
-    const newPosY = player.y + dy;
-    const currentMapX = Math.floor(player.x);
-    const currentMapY = Math.floor(player.y);
-    const nextMapX = Math.floor(newPosX);
-    const nextMapY = Math.floor(newPosY);
-
-    // Check only the destination cell. This is a simpler but effective collision method.
-    if (map[nextMapY][nextMapX] === 0) {
-        player.x = newPosX;
-        player.y = newPosY;
-    } 
-    // Allow sliding on the X-axis
-    else if (map[currentMapY][nextMapX] === 0) {
-        player.x = newPosX;
-    } 
-    // Allow sliding on the Y-axis
-    else if (map[nextMapY][currentMapX] === 0) {
-        player.y = newPosY;
+        const nextX = player.x + player.planeX * moveSpeed;
+        const nextY = player.y + player.planeY * moveSpeed;
+        if (map[Math.floor(player.y)][Math.floor(nextX)] === 0) player.x = nextX;
+        if (map[Math.floor(nextY)][Math.floor(player.x)] === 0) player.y = nextY;
     }
 }
 
 
 function render() {
+    // Draw sky and floor
     ctx.fillStyle = '#3498db';
     ctx.fillRect(0, 0, screenWidth, screenHeight / 2);
     ctx.fillStyle = '#7f8c8d';
@@ -154,6 +133,7 @@ function render() {
 
     const zBuffer = [];
 
+    // Ray casting for walls
     for (let x = 0; x < screenWidth; x++) {
         const cameraX = 2 * x / screenWidth - 1;
         const rayDirX = player.dirX + player.planeX * cameraX;
@@ -190,6 +170,7 @@ function render() {
         ctx.stroke();
     }
 
+    // Render targets (sprites)
     targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
     targets.forEach(target => {
         if (target.health > 0) {
@@ -215,11 +196,13 @@ function render() {
         }
     });
 
+    // Render HUD
     ctx.fillStyle = "white";
     ctx.font = "24px Arial";
     ctx.fillText("Score: " + score, 10, 30);
 }
 
+// --- Main Game Loop ---
 function gameLoop() {
     updateGame();
     render();
@@ -227,6 +210,7 @@ function gameLoop() {
 }
 gameLoop();
 
+// --- Fullscreen Button Logic ---
 const fullscreenBtn = document.getElementById('fullscreenBtn');
 fullscreenBtn.addEventListener('click', () => {
     const elem = document.body; 
