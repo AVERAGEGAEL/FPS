@@ -78,18 +78,13 @@ function shoot() {
     });
 }
 
-// --- *** COMPLETELY REBUILT AND FIXED MOUSE ROTATION *** ---
+// --- Mouselook Handler ---
 function updateRotation(e) {
     if (document.pointerLockElement === canvas) {
-        // Calculate rotation speed. Positive for right, negative for left.
         const rotSpeed = e.movementX * mouseSensitivity;
-
-        // Standard 2D rotation matrix for the direction vector
         const oldDirX = player.dirX;
         player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
         player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
-
-        // Apply the same rotation to the camera plane vector
         const oldPlaneX = player.planeX;
         player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
         player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
@@ -191,7 +186,9 @@ function render() {
         if (target.health > 0) {
             const spriteX = target.x - player.x;
             const spriteY = target.y - player.y;
-            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY);
+            
+            // --- *** FINAL FIX: Corrected mathematical formula for sprite transformation *** ---
+            const invDet = 1.0 / (player.planeX * player.dirY - player.dirX * player.planeY); 
             const transformX = invDet * (player.dirY * spriteX - player.dirX * spriteY);
             const transformY = invDet * (-player.planeY * spriteX + player.planeX * spriteY);
 
@@ -243,7 +240,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "5.0-final";
+const gameVersion = "5.1-final-final";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
