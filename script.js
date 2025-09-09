@@ -78,16 +78,18 @@ function shoot() {
     });
 }
 
-// --- Mouselook Handler ---
+// --- *** COMPLETELY REBUILT AND FIXED MOUSE ROTATION *** ---
 function updateRotation(e) {
     if (document.pointerLockElement === canvas) {
-        // FIXED: The sign is now correct for non-inverted aiming.
-        const rotSpeed = e.movementX * -mouseSensitivity;
+        // Calculate rotation speed. Positive for right, negative for left.
+        const rotSpeed = e.movementX * mouseSensitivity;
 
+        // Standard 2D rotation matrix for the direction vector
         const oldDirX = player.dirX;
         player.dirX = player.dirX * Math.cos(rotSpeed) - player.dirY * Math.sin(rotSpeed);
         player.dirY = oldDirX * Math.sin(rotSpeed) + player.dirY * Math.cos(rotSpeed);
 
+        // Apply the same rotation to the camera plane vector
         const oldPlaneX = player.planeX;
         player.planeX = player.planeX * Math.cos(rotSpeed) - player.planeY * Math.sin(rotSpeed);
         player.planeY = oldPlaneX * Math.sin(rotSpeed) + player.planeY * Math.cos(rotSpeed);
@@ -182,8 +184,7 @@ function render() {
         ctx.stroke();
     }
 
-    // --- FIXED: STABLE SPRITE RENDERING ---
-    // Re-enabled sorting to make sure sprites draw correctly when overlapping
+    // Stable Sprite Rendering
     targets.sort((a, b) => ((player.x - b.x)**2 + (player.y - b.y)**2) - ((player.x - a.x)**2 + (player.y - a.y)**2));
 
     targets.forEach(target => {
@@ -196,10 +197,8 @@ function render() {
 
             if (transformX > 0) {
                 const spriteScreenX = Math.floor((screenWidth / 2) * (1 + transformY / transformX));
-                
-                // FIXED: Calculation for sprite width and start/end points is now correct.
                 const spriteHeight = Math.abs(Math.floor(screenHeight / transformX));
-                const spriteWidth = spriteHeight; // Keep aspect ratio
+                const spriteWidth = spriteHeight;
                 const drawStartY = Math.floor(-spriteHeight / 2 + screenHeight / 2);
                 const drawStartX = Math.floor(-spriteWidth / 2 + spriteScreenX);
                 const drawEndX = Math.floor(spriteWidth / 2 + spriteScreenX);
@@ -244,7 +243,7 @@ fullscreenBtn.addEventListener('click', () => {
 });
 
 // --- Version Display ---
-const gameVersion = "4.1-stable";
+const gameVersion = "5.0-final";
 const updateTimestamp = new Date().toLocaleDateString();
 const versionDisplay = document.getElementById('version-info');
 versionDisplay.textContent = `v${gameVersion} | ${updateTimestamp}`;
